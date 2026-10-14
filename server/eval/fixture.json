@@ -1,0 +1,567 @@
+{
+  "persons": [
+    {
+      "key": "wife",
+      "profile": "做财务工作，周三晚上上瑜伽课。做事有计划，讨厌临时变卦。"
+    },
+    {
+      "key": "mom",
+      "profile": "退休小学老师，从老家来上海帮忙带孩子。勤快，嘴上爱念叨。"
+    },
+    {
+      "key": "daughter",
+      "profile": "三岁半，上幼儿园小班。"
+    }
+  ],
+  "places": [
+    {
+      "key": "home_wife_parents",
+      "customs": "初二回娘家；吃饭等长辈先动筷子。",
+      "travelTips": "高铁四个小时，岳母晕车药常备。"
+    },
+    {
+      "key": "home_my_parents",
+      "customs": "年三十在爷爷家吃团圆饭；亲戚多，爱打听。",
+      "travelTips": ""
+    }
+  ],
+  "memories": [
+    {
+      "ref": "wife_kids_clothes",
+      "type": "quote",
+      "subject": "wife",
+      "persons": [
+        "mom"
+      ],
+      "importance": 4,
+      "occurredAt": "-20d",
+      "title": "当着孩子的面说她给孩子穿少了，她受不了",
+      "content": "你妈每次当着孩子的面说我给孩子穿少了，我真的受不了。",
+      "attrs": {
+        "speaker": "wife"
+      }
+    },
+    {
+      "ref": "mom_clothes",
+      "type": "quote",
+      "subject": "mom",
+      "persons": [
+        "daughter"
+      ],
+      "importance": 3,
+      "occurredAt": "-20d",
+      "title": "孩子手凉，要加衣服",
+      "content": "孩子手凉，再加件衣服，我带你的时候都这样。",
+      "attrs": {
+        "speaker": "mom"
+      }
+    },
+    {
+      "ref": "wife_pride",
+      "type": "trait",
+      "subject": "wife",
+      "importance": 4,
+      "title": "自尊心强，被当众否定会很难受",
+      "content": "自尊心强，尤其在孩子和长辈面前被否定，会难受很久。"
+    },
+    {
+      "ref": "mom_needed",
+      "type": "trait",
+      "subject": "mom",
+      "importance": 4,
+      "title": "需要被认可、被需要",
+      "content": "觉得帮忙带孩子是她的付出，被否定会觉得自己不被需要。"
+    },
+    {
+      "ref": "wife_phone",
+      "type": "quote",
+      "subject": "wife",
+      "importance": 4,
+      "occurredAt": "-3d",
+      "title": "下班回来就看手机",
+      "content": "你下班回来就看手机，跟你说话你都嗯嗯嗯。",
+      "attrs": {
+        "speaker": "wife"
+      }
+    },
+    {
+      "ref": "wife_remember",
+      "type": "need",
+      "subject": "wife",
+      "importance": 5,
+      "occurredAt": "-30d",
+      "title": "希望我记住她说过的事",
+      "content": "希望我记住她说过的事，比如她不吃香菜、周三晚上要上瑜伽课。",
+      "attrs": {
+        "status": "open"
+      }
+    },
+    {
+      "ref": "commit_wednesday",
+      "type": "commitment",
+      "subject": "me",
+      "persons": [
+        "wife"
+      ],
+      "importance": 5,
+      "occurredAt": "-14d",
+      "title": "每周三晚上我来哄孩子睡觉",
+      "content": "答应老婆每周三晚上我来哄孩子睡觉，让她安心去上瑜伽课。",
+      "attrs": {
+        "promisedTo": "wife",
+        "status": "open"
+      }
+    },
+    {
+      "ref": "commit_overdue",
+      "type": "commitment",
+      "subject": "me",
+      "persons": [
+        "wife"
+      ],
+      "importance": 4,
+      "occurredAt": "2026-09-10",
+      "title": "国庆前修好卫生间漏水的龙头",
+      "content": "答应老婆国庆前修好卫生间漏水的龙头。",
+      "attrs": {
+        "promisedTo": "wife",
+        "dueAt": "2026-09-30",
+        "status": "open"
+      }
+    },
+    {
+      "ref": "custom_wife_hometown",
+      "type": "custom",
+      "place": "home_wife_parents",
+      "importance": 4,
+      "title": "初二回娘家，红包要双数",
+      "content": "初二回娘家。给岳父母和长辈的红包要双数，长辈的不少于一千。"
+    },
+    {
+      "ref": "taboo_wife_father",
+      "type": "taboo",
+      "subject": "wife_father",
+      "place": "home_wife_parents",
+      "importance": 4,
+      "title": "岳父不喜欢饭桌上谈工资和买房",
+      "content": "岳父不喜欢饭桌上有人谈工资、买房，会觉得是在比较。"
+    },
+    {
+      "ref": "wife_second_child",
+      "type": "quote",
+      "subject": "wife",
+      "place": "home_my_parents",
+      "importance": 5,
+      "occurredAt": "-250d",
+      "title": "回我老家总被问生二胎，我从不帮她挡",
+      "content": "回你老家每次都有人问我什么时候生二胎，我很烦，你从来不帮我挡。",
+      "attrs": {
+        "speaker": "wife"
+      }
+    },
+    {
+      "ref": "daughter_mango",
+      "type": "health",
+      "subject": "daughter",
+      "importance": 5,
+      "title": "芒果过敏",
+      "content": "对芒果过敏，吃了嘴边起红疹。"
+    },
+    {
+      "ref": "daughter_sleep",
+      "type": "routine",
+      "subject": "daughter",
+      "importance": 3,
+      "title": "晚上九点前睡，睡前听两个故事",
+      "content": "晚上八点半洗澡，九点前睡；睡前要听两个故事。"
+    },
+    {
+      "ref": "parenting_sugar",
+      "type": "conflict",
+      "persons": [
+        "wife",
+        "mom",
+        "daughter"
+      ],
+      "importance": 4,
+      "title": "给孩子吃糖的分歧",
+      "content": "老婆不让孩子吃糖和零食，我妈觉得偶尔吃点没关系，常背着老婆给。",
+      "attrs": {
+        "parties": [
+          "wife",
+          "mom"
+        ],
+        "status": "open"
+      }
+    },
+    {
+      "ref": "gift_cousin",
+      "type": "event",
+      "place": "home_my_parents",
+      "importance": 3,
+      "occurredAt": "-300d",
+      "title": "表弟结婚随了 2000",
+      "content": "去年大舅家表弟结婚，我们随了 2000，老婆觉得多了但没说。"
+    },
+    {
+      "ref": "item_passport",
+      "type": "item",
+      "importance": 5,
+      "occurredAt": "-60d",
+      "title": "护照和户口本 → 书房书桌右边抽屉",
+      "content": "两本深红色护照和一本户口本，装在蓝色拉链文件袋里。",
+      "attrs": {
+        "location": "家里 / 书房 / 书桌右边第一个抽屉",
+        "usage": "出国、办证件"
+      }
+    },
+    {
+      "ref": "item_property_deed",
+      "type": "item",
+      "importance": 5,
+      "occurredAt": "-200d",
+      "title": "房产证 → 主卧衣柜顶层保险箱",
+      "content": "房产证和购房合同，放在黑色小保险箱里。",
+      "attrs": {
+        "location": "家里 / 主卧 / 衣柜顶层 / 黑色保险箱",
+        "usage": "重要证件"
+      }
+    },
+    {
+      "ref": "item_charger_apple",
+      "type": "item",
+      "importance": 3,
+      "occurredAt": "-15d",
+      "title": "苹果手机充电头 → 客厅电视柜第二个抽屉",
+      "content": "白色 20W USB-C 电源适配器，配一根 1 米白色编织线。",
+      "attrs": {
+        "location": "家里 / 客厅 / 电视柜第二个抽屉",
+        "usage": "给手机充电"
+      }
+    },
+    {
+      "ref": "item_charger_laptop",
+      "type": "item",
+      "importance": 3,
+      "occurredAt": "-40d",
+      "title": "笔记本电脑电源 → 书房书架下层收纳盒",
+      "content": "联想 65W 圆口电源适配器，黑色，线比较粗。",
+      "attrs": {
+        "location": "家里 / 书房 / 书架下层 / 灰色收纳盒",
+        "usage": "给笔记本电脑供电"
+      }
+    },
+    {
+      "ref": "item_drill",
+      "type": "item",
+      "importance": 3,
+      "occurredAt": "-90d",
+      "title": "电钻 → 阳台储物柜下层",
+      "content": "博世绿色充电式电钻，配一盒钻头和两块电池。",
+      "attrs": {
+        "location": "家里 / 阳台 / 储物柜下层",
+        "usage": "打孔、拧螺丝"
+      }
+    },
+    {
+      "ref": "item_toolbox",
+      "type": "item",
+      "importance": 3,
+      "occurredAt": "-90d",
+      "title": "工具箱 → 阳台储物柜上层",
+      "content": "红色塑料工具箱：螺丝刀、扳手、卷尺、电工胶布。",
+      "attrs": {
+        "location": "家里 / 阳台 / 储物柜上层",
+        "usage": "家里修修补补"
+      }
+    },
+    {
+      "ref": "item_thermometer",
+      "type": "item",
+      "importance": 3,
+      "occurredAt": "-25d",
+      "title": "体温计 → 主卧床头柜抽屉",
+      "content": "欧姆龙电子体温计，白色，旁边有两颗备用纽扣电池。",
+      "attrs": {
+        "location": "家里 / 主卧 / 床头柜抽屉",
+        "usage": "量体温"
+      }
+    },
+    {
+      "ref": "item_medicine",
+      "type": "item",
+      "importance": 5,
+      "occurredAt": "-25d",
+      "title": "女儿的退烧药 → 冰箱门第二格",
+      "content": "美林布洛芬混悬液，开封后放冰箱冷藏，按体重给量。",
+      "attrs": {
+        "location": "家里 / 厨房 / 冰箱门第二格",
+        "usage": "孩子发烧时退烧"
+      },
+      "subject": "daughter"
+    },
+    {
+      "ref": "item_winter_clothes",
+      "type": "item",
+      "importance": 3,
+      "occurredAt": "-150d",
+      "title": "女儿的冬衣 → 次卧衣柜上层真空袋",
+      "content": "去年的粉色羽绒服、两条加绒裤，装在灰色真空压缩袋里。",
+      "attrs": {
+        "location": "家里 / 次卧 / 衣柜上层 / 灰色真空袋",
+        "usage": "冬天穿"
+      },
+      "subject": "daughter"
+    },
+    {
+      "ref": "item_spare_key",
+      "type": "item",
+      "importance": 4,
+      "occurredAt": "-120d",
+      "title": "备用钥匙 → 门口鞋柜最上层铁盒",
+      "content": "家门和单元门备用钥匙各一把，放在蓝色铁皮饼干盒里。",
+      "attrs": {
+        "location": "家里 / 门口 / 鞋柜最上层 / 蓝色铁盒",
+        "usage": "忘带钥匙时用"
+      }
+    },
+    {
+      "ref": "item_vaccine_book",
+      "type": "item",
+      "importance": 4,
+      "occurredAt": "-70d",
+      "title": "女儿的疫苗本 → 书房文件柜第二层",
+      "content": "绿色封皮的儿童预防接种证，和出生证明夹在一起。",
+      "attrs": {
+        "location": "家里 / 书房 / 文件柜第二层",
+        "usage": "打疫苗、入园体检时带"
+      },
+      "subject": "daughter"
+    },
+    {
+      "ref": "item_mom_bp",
+      "type": "item",
+      "importance": 5,
+      "occurredAt": "-10d",
+      "title": "妈妈的降压药 → 厨房吊柜左边",
+      "content": "苯磺酸氨氯地平片，每天早饭后一片；还有一盒没拆。",
+      "attrs": {
+        "location": "家里 / 厨房 / 吊柜左边",
+        "usage": "控制血压"
+      },
+      "subject": "mom"
+    },
+    {
+      "ref": "item_router",
+      "type": "item",
+      "importance": 3,
+      "occurredAt": "-100d",
+      "title": "Wi-Fi 路由器 → 客厅电视柜后面",
+      "content": "白色小米路由器，网不好时拔电源等 10 秒再插上。",
+      "attrs": {
+        "location": "家里 / 客厅 / 电视柜后面",
+        "usage": "家里上网"
+      }
+    },
+    {
+      "ref": "wife_birthday_gift",
+      "type": "quote",
+      "importance": 4,
+      "title": "生日别送花，想一起去看电影",
+      "content": "生日不要再送花了，花两天就谢了，还不如陪我去看场电影。",
+      "subject": "wife",
+      "occurredAt": "-40d",
+      "attrs": {
+        "speaker": "wife"
+      }
+    },
+    {
+      "ref": "mom_hometown",
+      "type": "quote",
+      "importance": 4,
+      "title": "等孩子上中班想回老家住一阵",
+      "content": "等孩子上了中班，我想回老家住一阵，你爸一个人在家我不放心。",
+      "subject": "mom",
+      "occurredAt": "-10d",
+      "attrs": {
+        "speaker": "mom"
+      }
+    },
+    {
+      "ref": "wife_mom_cooking",
+      "type": "quote",
+      "importance": 4,
+      "title": "希望我去跟妈说菜太咸",
+      "content": "妈做的菜太咸了，孩子吃了不好，你能不能跟她说一下，别是我去说。",
+      "subject": "wife",
+      "persons": [
+        "mom"
+      ],
+      "occurredAt": "-5d",
+      "attrs": {
+        "speaker": "wife"
+      }
+    },
+    {
+      "ref": "daughter_zoo",
+      "type": "quote",
+      "importance": 3,
+      "title": "想去动物园看长颈鹿",
+      "content": "爸爸，你什么时候陪我去动物园看长颈鹿？",
+      "subject": "daughter",
+      "occurredAt": "-2d",
+      "attrs": {
+        "speaker": "daughter"
+      }
+    },
+    {
+      "ref": "wife_travel",
+      "type": "quote",
+      "importance": 3,
+      "title": "明年春天想去云南",
+      "content": "明年春天想去云南，大理或者丽江都行，带上孩子。",
+      "subject": "wife",
+      "occurredAt": "-60d",
+      "attrs": {
+        "speaker": "wife"
+      }
+    },
+    {
+      "ref": "mom_socks",
+      "type": "quote",
+      "importance": 2,
+      "title": "孙女会自己穿袜子了",
+      "content": "孙女现在会自己穿袜子了，比你小时候强。",
+      "subject": "mom",
+      "persons": [
+        "daughter"
+      ],
+      "occurredAt": "-7d",
+      "attrs": {
+        "speaker": "mom"
+      }
+    },
+    {
+      "ref": "event_ac_repair",
+      "type": "event",
+      "importance": 3,
+      "title": "主卧空调维修",
+      "content": "主卧空调不制冷，请格力师傅上门，加了氟，收费 280 元，保修三个月。",
+      "occurredAt": "2026-09-01"
+    },
+    {
+      "ref": "event_daughter_fever",
+      "type": "event",
+      "importance": 4,
+      "title": "女儿发烧去儿童医院",
+      "content": "女儿发烧到 39 度，去儿童医院急诊，诊断是疱疹性咽峡炎，五天退烧。",
+      "subject": "daughter",
+      "occurredAt": "-25d"
+    },
+    {
+      "ref": "event_parent_meeting",
+      "type": "event",
+      "importance": 3,
+      "title": "幼儿园家长会",
+      "content": "老师说女儿午睡困难，建议家里周末中午也固定时间休息。",
+      "subject": "daughter",
+      "occurredAt": "-12d"
+    },
+    {
+      "ref": "event_car_maintenance",
+      "type": "event",
+      "importance": 2,
+      "title": "车子做了 2 万公里保养",
+      "content": "在 4S 店做了 2 万公里保养，花了 860 元，下次是 3 万公里。",
+      "occurredAt": "-80d"
+    },
+    {
+      "ref": "event_mil_birthday",
+      "type": "event",
+      "importance": 3,
+      "title": "岳母 60 岁生日送了按摩仪",
+      "content": "岳母 60 岁生日，送了一台颈椎按摩仪，她很喜欢。",
+      "subject": "wife_mother",
+      "persons": [
+        "wife"
+      ],
+      "occurredAt": "-100d"
+    },
+    {
+      "ref": "wife_coriander",
+      "type": "preference",
+      "importance": 3,
+      "title": "不吃香菜",
+      "content": "老婆不吃香菜，点外卖要备注。",
+      "subject": "wife",
+      "attrs": {
+        "polarity": "dislike"
+      }
+    },
+    {
+      "ref": "wife_coffee",
+      "type": "preference",
+      "importance": 2,
+      "title": "只喝美式不加糖",
+      "content": "老婆咖啡只喝美式，不加糖不加奶。",
+      "subject": "wife",
+      "attrs": {
+        "polarity": "like"
+      }
+    },
+    {
+      "ref": "mom_early",
+      "type": "habit",
+      "importance": 2,
+      "title": "每天五点半起床",
+      "content": "妈每天五点半起床，先烧一壶开水。",
+      "subject": "mom"
+    },
+    {
+      "ref": "daughter_corn",
+      "type": "preference",
+      "importance": 3,
+      "title": "最近爱吃玉米和蒸蛋",
+      "content": "女儿最近爱吃玉米和蒸蛋，不爱吃青菜。",
+      "subject": "daughter",
+      "occurredAt": "-8d",
+      "attrs": {
+        "polarity": "like"
+      }
+    }
+  ],
+  "notes": [
+    {
+      "ref": "note_cousin_wedding",
+      "channel": "paste",
+      "occurredAt": "-6d",
+      "about": [
+        "wife"
+      ],
+      "text": "老婆：我表妹十一月二十二号在杭州结婚，我们一家三口都要去，你记得那周五请个假，酒店我来订。"
+    },
+    {
+      "ref": "note_insurance",
+      "channel": "quick_note",
+      "occurredAt": "-30d",
+      "about": [],
+      "text": "车险十二月五号到期，去年买的平安，3800 块，到期前一个月记得比价。"
+    },
+    {
+      "ref": "note_water",
+      "channel": "quick_note",
+      "occurredAt": "-3d",
+      "about": [],
+      "text": "物业通知：下周三上午九点到十二点停水检修，提前接好水。"
+    },
+    {
+      "ref": "note_roof",
+      "channel": "chat",
+      "occurredAt": "-15d",
+      "about": [
+        "mom"
+      ],
+      "text": "【我】妈说老家房子屋顶漏雨，爸找人修好了，花了三千块，让我们别担心。"
+    }
+  ]
+}

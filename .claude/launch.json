@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "client/app", "run", "dev"],
+      "port": 7906
+    },
+    {
+      "name": "manager",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "client/manager", "run", "dev"],
+      "port": 7905
+    }
+  ]
+}

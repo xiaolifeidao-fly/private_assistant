@@ -1,0 +1,23 @@
+# 运行时配置（含数据库密码、API Key）
+server/*/configs/application.properties
+server/*/bin/
+server/*/logs/
+server/*/run/
+
+# 前端
+node_modules/
+.next/
+client/*/out/
+*.tsbuildinfo
+.env*.local
+
+.DS_Store
+server/data/
+
+# 部署脚本产物（start.sh / package.sh）
+server/*/package/
+client/*/package/
+client/*/run/
+client/*/logs/
+*.tar.gz
+server/eval/reports/

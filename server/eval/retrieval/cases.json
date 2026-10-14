@@ -1,0 +1,422 @@
+{
+ "bot": "recall",
+ "cases": [
+  {
+   "name": "护照放哪了",
+   "category": "找东西",
+   "history": [],
+   "query": "护照放哪了",
+   "expect": [
+    "@item_passport"
+   ]
+  },
+  {
+   "name": "出国要用的证件在哪",
+   "category": "找东西",
+   "history": [],
+   "query": "出国要用的证件在哪",
+   "expect": [
+    "@item_passport"
+   ]
+  },
+  {
+   "name": "充电头在哪",
+   "category": "找东西",
+   "history": [],
+   "query": "充电头在哪",
+   "expect": [
+    "@item_charger_apple"
+   ]
+  },
+  {
+   "name": "手机充电器放哪了",
+   "category": "找东西",
+   "history": [],
+   "query": "手机充电器放哪了",
+   "expect": [
+    "@item_charger_apple"
+   ]
+  },
+  {
+   "name": "电脑的电源线呢",
+   "category": "找东西",
+   "history": [],
+   "query": "电脑的电源线呢",
+   "expect": [
+    "@item_charger_laptop"
+   ]
+  },
+  {
+   "name": "打孔的工具放哪了",
+   "category": "找东西",
+   "history": [],
+   "query": "打孔的工具放哪了",
+   "expect": [
+    "@item_drill"
+   ]
+  },
+  {
+   "name": "螺丝刀在哪",
+   "category": "找东西",
+   "history": [],
+   "query": "螺丝刀在哪",
+   "expect": [
+    "@item_toolbox"
+   ]
+  },
+  {
+   "name": "量体温的东西在哪",
+   "category": "找东西",
+   "history": [],
+   "query": "量体温的东西在哪",
+   "expect": [
+    "@item_thermometer"
+   ]
+  },
+  {
+   "name": "孩子发烧吃的药放哪",
+   "category": "找东西",
+   "history": [],
+   "query": "孩子发烧吃的药放哪",
+   "expect": [
+    "@item_medicine"
+   ]
+  },
+  {
+   "name": "女儿的羽绒服收在哪了",
+   "category": "找东西",
+   "history": [],
+   "query": "女儿的羽绒服收在哪了",
+   "expect": [
+    "@item_winter_clothes"
+   ]
+  },
+  {
+   "name": "家里备用钥匙在哪",
+   "category": "找东西",
+   "history": [],
+   "query": "家里备用钥匙在哪",
+   "expect": [
+    "@item_spare_key"
+   ]
+  },
+  {
+   "name": "打疫苗要带的本子在哪",
+   "category": "找东西",
+   "history": [],
+   "query": "打疫苗要带的本子在哪",
+   "expect": [
+    "@item_vaccine_book"
+   ]
+  },
+  {
+   "name": "我妈的血压药放哪了",
+   "category": "找东西",
+   "history": [],
+   "query": "我妈的血压药放哪了",
+   "expect": [
+    "@item_mom_bp"
+   ]
+  },
+  {
+   "name": "房本在哪",
+   "category": "找东西",
+   "history": [],
+   "query": "房本在哪",
+   "expect": [
+    "@item_property_deed"
+   ]
+  },
+  {
+   "name": "网断了，路由器在哪",
+   "category": "找东西",
+   "history": [],
+   "query": "网断了，路由器在哪",
+   "expect": [
+    "@item_router"
+   ]
+  },
+  {
+   "name": "老婆说过生日想要什么",
+   "category": "原话",
+   "history": [],
+   "query": "老婆说过生日想要什么",
+   "expect": [
+    "@wife_birthday_gift"
+   ]
+  },
+  {
+   "name": "我妈说过想回老家吗",
+   "category": "原话",
+   "history": [],
+   "query": "我妈说过想回老家吗",
+   "expect": [
+    "@mom_hometown"
+   ]
+  },
+  {
+   "name": "老婆对我妈做饭有什么意见",
+   "category": "原话",
+   "history": [],
+   "query": "老婆对我妈做饭有什么意见",
+   "expect": [
+    "@wife_mom_cooking"
+   ]
+  },
+  {
+   "name": "女儿最近想去哪玩",
+   "category": "原话",
+   "history": [],
+   "query": "女儿最近想去哪玩",
+   "expect": [
+    "@daughter_zoo"
+   ]
+  },
+  {
+   "name": "她说过想去哪旅游",
+   "category": "原话",
+   "history": [],
+   "query": "她说过想去哪旅游",
+   "expect": [
+    "@wife_travel"
+   ]
+  },
+  {
+   "name": "老婆对回我老家有什么不满",
+   "category": "原话",
+   "history": [],
+   "query": "老婆对回我老家有什么不满",
+   "expect": [
+    "@wife_second_child"
+   ]
+  },
+  {
+   "name": "她嫌我下班回家干什么",
+   "category": "原话",
+   "history": [],
+   "query": "她嫌我下班回家干什么",
+   "expect": [
+    "@wife_phone"
+   ]
+  },
+  {
+   "name": "上次修空调是哪天",
+   "category": "事情",
+   "history": [],
+   "query": "上次修空调是哪天",
+   "expect": [
+    "@event_ac_repair"
+   ]
+  },
+  {
+   "name": "空调保修到什么时候",
+   "category": "事情",
+   "history": [],
+   "query": "空调保修到什么时候",
+   "expect": [
+    "@event_ac_repair"
+   ]
+  },
+  {
+   "name": "女儿上次生病是什么病",
+   "category": "事情",
+   "history": [],
+   "query": "女儿上次生病是什么病",
+   "expect": [
+    "@event_daughter_fever"
+   ]
+  },
+  {
+   "name": "老师在家长会上说了什么",
+   "category": "事情",
+   "history": [],
+   "query": "老师在家长会上说了什么",
+   "expect": [
+    "@event_parent_meeting"
+   ]
+  },
+  {
+   "name": "车上次保养花了多少钱",
+   "category": "事情",
+   "history": [],
+   "query": "车上次保养花了多少钱",
+   "expect": [
+    "@event_car_maintenance"
+   ]
+  },
+  {
+   "name": "岳母生日送过什么",
+   "category": "事情",
+   "history": [],
+   "query": "岳母生日送过什么",
+   "expect": [
+    "@event_mil_birthday"
+   ]
+  },
+  {
+   "name": "表弟结婚随了多少",
+   "category": "事情",
+   "history": [],
+   "query": "表弟结婚随了多少",
+   "expect": [
+    "@gift_cousin"
+   ]
+  },
+  {
+   "name": "女儿对什么过敏",
+   "category": "偏好健康",
+   "history": [],
+   "query": "女儿对什么过敏",
+   "expect": [
+    "@daughter_mango"
+   ]
+  },
+  {
+   "name": "老婆喝咖啡有什么讲究",
+   "category": "偏好健康",
+   "history": [],
+   "query": "老婆喝咖啡有什么讲究",
+   "expect": [
+    "@wife_coffee"
+   ]
+  },
+  {
+   "name": "老婆不吃什么",
+   "category": "偏好健康",
+   "history": [],
+   "query": "老婆不吃什么",
+   "expect": [
+    "@wife_coriander",
+    "@wife_remember"
+   ]
+  },
+  {
+   "name": "那户口本呢",
+   "category": "追问",
+   "history": [
+    "我：护照放哪了",
+    "助理：在书房书桌右边第一个抽屉，蓝色文件袋里。"
+   ],
+   "query": "那户口本呢",
+   "expect": [
+    "@item_passport"
+   ]
+  },
+  {
+   "name": "体温计呢",
+   "category": "追问",
+   "history": [
+    "我：女儿的退烧药在哪",
+    "助理：在冰箱门第二格。"
+   ],
+   "query": "体温计呢",
+   "expect": [
+    "@item_thermometer"
+   ]
+  },
+  {
+   "name": "花了多少钱",
+   "category": "追问",
+   "history": [
+    "我：上次修空调是什么时候",
+    "助理：9 月 1 日，格力师傅上门加的氟。"
+   ],
+   "query": "花了多少钱",
+   "expect": [
+    "@event_ac_repair"
+   ]
+  },
+  {
+   "name": "她吃的药放哪了",
+   "category": "追问",
+   "history": [
+    "我：我妈最近身体怎么样",
+    "助理：记忆里有她每天五点半起床的习惯，别的身体情况没记。"
+   ],
+   "query": "她吃的药放哪了",
+   "expect": [
+    "@item_mom_bp"
+   ]
+  },
+  {
+   "name": "她之前说过想要什么吗",
+   "category": "追问",
+   "history": [
+    "我：老婆生日快到了"
+   ],
+   "query": "她之前说过想要什么吗",
+   "expect": [
+    "@wife_birthday_gift"
+   ]
+  },
+  {
+   "name": "那她喜欢喝什么",
+   "category": "追问",
+   "history": [
+    "我：老婆不吃什么",
+    "助理：她不吃香菜。"
+   ],
+   "query": "那她喜欢喝什么",
+   "expect": [
+    "@wife_coffee"
+   ]
+  },
+  {
+   "name": "表妹婚礼是哪天在哪",
+   "category": "原文兜底",
+   "history": [],
+   "query": "表妹婚礼是哪天在哪",
+   "expect": [
+    "#note_cousin_wedding"
+   ]
+  },
+  {
+   "name": "车险什么时候到期",
+   "category": "原文兜底",
+   "history": [],
+   "query": "车险什么时候到期",
+   "expect": [
+    "#note_insurance"
+   ]
+  },
+  {
+   "name": "停水是哪天",
+   "category": "原文兜底",
+   "history": [],
+   "query": "停水是哪天",
+   "expect": [
+    "#note_water"
+   ]
+  },
+  {
+   "name": "老家房子修屋顶花了多少",
+   "category": "原文兜底",
+   "history": [],
+   "query": "老家房子修屋顶花了多少",
+   "expect": [
+    "#note_roof"
+   ]
+  },
+  {
+   "name": "家里的吸尘器放哪了",
+   "category": "无答案",
+   "history": [],
+   "query": "家里的吸尘器放哪了",
+   "expect": []
+  },
+  {
+   "name": "老婆的驾照放哪了",
+   "category": "无答案",
+   "history": [],
+   "query": "老婆的驾照放哪了",
+   "expect": []
+  },
+  {
+   "name": "上次去日本玩是哪年",
+   "category": "无答案",
+   "history": [],
+   "query": "上次去日本玩是哪年",
+   "expect": []
+  }
+ ]
+}
