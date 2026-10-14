@@ -10,6 +10,12 @@ const managerApi = process.env.MANAGER_API || "http://127.0.0.1:10013";
  */
 const basePath = process.env.BASE_PATH ?? "/assistant-manager";
 
+/**
+ * 后端接口的前缀，对应后端 application.properties 的 server.context_path。
+ * 默认和 basePath 一样；后端没配 context_path（接口直接在 /api）时，构建带上 API_CONTEXT_PATH= 置空。
+ */
+const apiContextPath = process.env.API_CONTEXT_PATH ?? basePath;
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
@@ -24,7 +30,7 @@ const nextConfig = {
     return basePath ? [{ source: "/", destination: basePath, basePath: false, permanent: false }] : [];
   },
   async rewrites() {
-    return [{ source: "/api/:path*", destination: `${managerApi}/api/:path*` }];
+    return [{ source: "/api/:path*", destination: `${managerApi}${apiContextPath}/api/:path*` }];
   },
 };
 

@@ -25,6 +25,7 @@ export function personTone(key: string, persons: Person[] = []): Tone {
 export function botTone(botKey: string): Tone {
   if (botKey === "assistant") return "clay";
   if (botKey === "recall") return "sage";
+  if (botKey === "remind") return "plum";
   return fixed[botKey] ?? "plum";
 }
 

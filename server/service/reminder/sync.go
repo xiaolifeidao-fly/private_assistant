@@ -144,7 +144,7 @@ func (s *Service) syncDatedMemories(ctx context.Context, familyKey string, now t
 			eventAt := due
 			_, err = s.upsert(ctx, familyKey, reminderSeed{Kind: kind, Title: title, Body: body, EventAt: &eventAt,
 				RemindAt: remindAt, SourceType: "memory", SourceKey: item.MemoryKey,
-				DedupeKey: fmt.Sprintf("memory:%s:%s:%d", item.MemoryKey, due.Format("20060102"), lead), TargetURL: "/today"})
+				DedupeKey: fmt.Sprintf("memory:%s:%s:%d", item.MemoryKey, due.Format("20060102"), lead), TargetURL: "/today?memory=" + item.MemoryKey})
 			if err != nil {
 				return err
 			}

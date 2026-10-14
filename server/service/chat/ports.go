@@ -55,6 +55,7 @@ type PersonaPort interface {
 type ReminderPort interface {
 	Upcoming(ctx context.Context, familyKey string, days int) ([]reminder.Reminder, error)
 	CreateManual(ctx context.Context, familyKey string, input reminder.ManualInput) (reminder.Reminder, error)
+	Dismiss(ctx context.Context, familyKey, reminderKey string) error
 }
 
 type SkillPort interface {

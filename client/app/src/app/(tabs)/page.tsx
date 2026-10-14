@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, PullToRefresh, SwipeAction, Toast } from "antd-mobile";
-import { ArrowRight, Luggage, MessageSquareQuote, MessagesSquare, NotebookPen, Search, type LucideIcon } from "lucide-react";
+import { AlarmClock, ArrowRight, Luggage, MessageSquareQuote, MessagesSquare, NotebookPen, Search, type LucideIcon } from "lucide-react";
 import { api } from "@/lib/api";
 import { useOnResume } from "@/lib/events";
 import { botTone, type Tone } from "@/lib/tone";
@@ -25,6 +25,7 @@ const shortcuts: { key: string; icon: LucideIcon; label: string; hint: string; t
   { key: "find", icon: Search, label: "找东西", hint: "证件钥匙放哪了", tone: "sage", bot: "recall", prompt: "" },
   { key: "say", icon: MessageSquareQuote, label: "这话怎么说", hint: "想清楚再开口", tone: "rose", bot: "assistant", prompt: "这件事我想好好说，帮我想想怎么开口：" },
   { key: "trip", icon: Luggage, label: "回老家", hint: "见谁、注意什么", tone: "sky", bot: "assistant", prompt: "下次回老家要注意什么？" },
+  { key: "remind", icon: AlarmClock, label: "提醒", hint: "说一句，到点推送到手机", tone: "plum", bot: "remind", prompt: "提醒我：" },
 ];
 
 export default function ChatsPage() {
@@ -259,6 +260,7 @@ export default function ChatsPage() {
           flex-shrink: 0;
         }
         .chat-shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 16px 0; }
+        .chat-shortcut:last-child:nth-child(odd) { grid-column: 1 / -1; }
         .chat-shortcut {
           appearance: none;
           display: flex;

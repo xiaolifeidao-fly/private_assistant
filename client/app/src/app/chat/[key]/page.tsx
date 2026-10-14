@@ -44,14 +44,32 @@ const toolText: Record<string, string> = {
   ask_persona: "让分身预演了一下",
   list_upcoming: "查了近期提醒",
   create_reminder: "建好了提醒",
+  cancel_reminder: "取消了提醒",
   load_skill: "翻了做事手册",
   now: "看了看时间",
 };
 
 // 空对话时给的开场建议，点一下填进输入框
 const MAX_PHOTOS = 9;
+const MAX_TEXT_FILE = 200 << 10;
+const TEXT_EXTENSIONS = /\.(txt|md|markdown|csv|tsv|json|log|xml|ya?ml|ini|conf|html?|srt|vtt)$/i;
+
+// Safari、从网页复制的图片往往只在 items 里，files 是空的
+function clipboardFiles(data: DataTransfer | null): File[] {
+  if (!data) return [];
+  if (data.files.length) return Array.from(data.files);
+  return Array.from(data.items)
+    .filter((item) => item.kind === "file")
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => !!file);
+}
+
+function isTextFile(file: File) {
+  return file.type.startsWith("text/") || file.type === "application/json" || TEXT_EXTENSIONS.test(file.name);
+}
 
 const starters: Record<string, string[]> = {
+  remind: ["明早 8 点提醒我给妈打电话", "周五下班前交报销", "最近有哪些提醒？", "提醒我："],
   recall: ["护照和户口本放哪了？", "上次修空调是哪天？", "她说过想要什么礼物？", "记一下："],
   assistant: ["她最近在意什么？", "下周回老家要注意什么？", "记一下：", "我答应过的事还有哪些没做？"],
   wife: ["我打算这么跟你说：", "你最近为什么不太开心？"],
@@ -102,7 +120,7 @@ function Chat() {
   const showNote = useCallback((key: string) => {
     api.get<Note>(`/notes/${key}`).then(setOpenNote).catch((error) => Toast.show({ content: (error as Error).message }));
   }, []);
-  // 万能通 / 助理可以带照片：选好的照片、发出去还没被服务端收下时的本机预览、整理进度
+  // 所有对话都可以带照片：选好的照片、发出去还没被服务端收下时的本机预览、整理进度
   const [photos, setPhotos] = useState<{ blob: Blob; url: string }[]>([]);
   const [pendingUser, setPendingUser] = useState<{ text: string; urls: string[] } | null>(null);
   const [statusText, setStatusText] = useState("");
@@ -110,7 +128,8 @@ function Chat() {
   // 用户往上翻看历史时不要被流式输出拽回底部
   const stickRef = useRef(true);
   const canRehearse = bot?.botKey === "wife" || bot?.botKey === "mom";
-  const canAttach = bot?.kind === "assistant";
+  // 所有对话都能带照片（拍照、相册或粘贴）
+  const canAttach = !!bot;
 
   const pickPhotos = async (files: File[]) => {
     const room = MAX_PHOTOS - photos.length;
@@ -126,6 +145,42 @@ function Chat() {
     }
     setPhotos((list) => [...list, ...picked]);
   };
+
+  // 粘贴：图片当照片带上；文本类文件读出内容接到草稿后面；纯文字交给输入框自己处理
+  const onPaste = (event: ClipboardEvent) => {
+    const files = clipboardFiles(event.clipboardData);
+    if (!files.length) return;
+    event.preventDefault();
+    const images = files.filter((file) => file.type.startsWith("image/"));
+    const others = files.filter((file) => !file.type.startsWith("image/"));
+    if (images.length) {
+      if (canAttach) void pickPhotos(images);
+    }
+    void (async () => {
+      for (const file of others) {
+        if (!isTextFile(file)) {
+          Toast.show({ content: `${file.name} 暂不支持，可以粘贴图片或文本文件` });
+          continue;
+        }
+        if (file.size > MAX_TEXT_FILE) {
+          Toast.show({ content: `${file.name} 太大了（最多 ${MAX_TEXT_FILE >> 10}KB）` });
+          continue;
+        }
+        const content = (await file.text()).trim();
+        if (!content) continue;
+        setDraft((current) => `${current ? `${current}\n\n` : ""}【${file.name}】\n${content}`);
+      }
+    })();
+  };
+
+  // 挂在 document 上：光标不在输入框里（比如刚点了消息区）直接 ⌘V 也能收到
+  const onPasteRef = useRef(onPaste);
+  onPasteRef.current = onPaste;
+  useEffect(() => {
+    const listener = (event: ClipboardEvent) => onPasteRef.current(event);
+    document.addEventListener("paste", listener);
+    return () => document.removeEventListener("paste", listener);
+  }, []);
 
   const loadMessages = useCallback(async () => {
     const list = await api.get<ChatMessage[]>(`/conversations/${key}/messages`);
@@ -355,7 +410,7 @@ function Chat() {
             <Avatar tone={tone} size={64} shape="squircle">{bot.avatar}</Avatar>
             <div className="chat-intro-name">{bot.name}</div>
             <div className="chat-intro-sub">
-              {bot.kind === "persona" ? "把想说的话先说给 TA 听听" : canAttach ? "打字、说话、拍照都可以" : "打字或说话都可以"}
+              {bot.kind === "persona" ? "把想说的话先说给 TA 听听，也可以发照片" : "打字、说话、拍照都可以"}
             </div>
           </div>
         )}
@@ -443,9 +498,15 @@ function Chat() {
             value={draft}
             onChange={setDraft}
             placeholder={
-              bot?.kind === "persona" ? "想对 TA 说什么…"
-                : photos.length ? "说说这是什么、干什么用、放在哪（可以点键盘上的🎤说）"
+              photos.length ? (
+                bot?.kind === "persona" ? "想跟 TA 说说这张照片什么…"
+                  : bot?.botKey === "remind" ? "要提醒什么？照片里的时间也会帮你看"
+                  : bot?.botKey === "recall" ? "说说这是什么、干什么用、放在哪（可以点键盘上的🎤说）"
+                  : "想问这张照片什么，或者直接发"
+              )
+                : bot?.kind === "persona" ? "想对 TA 说什么…"
                 : bot?.botKey === "recall" ? "问「…放哪了」，或拍张照记东西"
+                : bot?.botKey === "remind" ? "说要做的事和时间，比如「明晚 8 点给女儿洗澡」"
                 : "说点什么，或者「记一下：……」"
             }
             rows={1}

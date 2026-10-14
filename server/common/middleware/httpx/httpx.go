@@ -38,6 +38,16 @@ func Property(key string) string {
 	return config[key]
 }
 
+// ContextPath 是接口的访问前缀（server.context_path），接口挂在 ContextPath()+"/api" 下。
+// 统一成「/开头、不带结尾 /」的形式，例如 "/assistant"；没配时是空串，接口就在 /api。
+func ContextPath() string {
+	path := strings.Trim(Property("server.context_path"), "/")
+	if path == "" {
+		return ""
+	}
+	return "/" + path
+}
+
 // PropertyInt 读整数配置，缺省或非法时返回 fallback。
 func PropertyInt(key string, fallback int) int {
 	value, err := strconv.Atoi(Property(key))

@@ -80,6 +80,7 @@ cd client/app && npm install && npm run dev
 - 管理端：http://localhost:7905/assistant-manager
 - 手机端：http://localhost:7906/assistant（手机和电脑同一局域网时，用电脑 IP 访问）
 - 访问前缀是 next.config.mjs 里的 `basePath`，构建期定死，`BASE_PATH=/xxx ./build.sh` 可改，设成空字符串就挂在根路径。
+- 后端接口前缀是 application.properties 的 `server.context_path`（app-api `/assistant`、manager-api `/assistant-manager`），要和前端 `BASE_PATH` 一致。
 
 ### 4. 第一次用
 
@@ -99,6 +100,7 @@ cd client/app && npm install && npm run dev
 | `redev.sh` | 改完代码一键重编重启 |
 | `package.sh` | 打部署包：后端 `<名字>-linux-amd64.tar.gz`，前端 `pa-app/pa-manager-linux-x64.tar.gz` |
 | `unpack-release.sh` | 和 tar 包放在部署机同一目录下执行，解包到同级目录 |
+| `deploy.sh` | 和 tar 包、`unpack-release.sh` 放同一目录，一条命令按 stop → 解包 → start 换版本；后端缺 `application.properties` 时只解包不启动 |
 
 - 后端包不带 `configs/application.properties`，首次部署从 example 复制；`storage.dir=../data` 落在解包目录的上一级，两个服务放同一个父目录就自然共享。
 - 前端 `/api` 的转发目标是**构建期**定死的：后端不在同机默认端口时，打包前带上 `APP_API=http://… ./package.sh` / `MANAGER_API=…`。
@@ -107,12 +109,12 @@ cd client/app && npm install && npm run dev
 ## 部署要点
 
 - **必须 HTTPS**：iOS 的「添加到主屏幕」以后的推送、Service Worker 都要求 HTTPS。
-- 前端都带访问前缀（手机端 `/assistant`、管理端 `/assistant-manager`），nginx 按前缀转发；转发时**不要**去掉前缀。
-- nginx 把 `/assistant/api` 直接转给后端（去掉前缀），**对话接口要关缓冲**，否则流式输出会变成一次性返回：
+- 前端和后端接口都带访问前缀（手机端 `/assistant`、管理端 `/assistant-manager`），nginx 按前缀原样转发，**不要**去掉前缀。
+- nginx 把 `/assistant/api` 直接转给后端，**对话接口要关缓冲**，否则流式输出会变成一次性返回：
 
 ```nginx
 location /assistant/api/ {
-    proxy_pass http://127.0.0.1:10012/api/;
+    proxy_pass http://127.0.0.1:10012;
     proxy_http_version 1.1;
     proxy_set_header Connection "";
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

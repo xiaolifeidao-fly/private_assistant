@@ -24,7 +24,8 @@ func New(services *wire.Services) http.Handler {
 	_ = engine.SetTrustedProxies(nil)
 	engine.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 
-	api := engine.Group("/api")
+	// /healthz 留在根上给启动脚本探活；接口带上 server.context_path 前缀
+	api := engine.Group(httpx.ContextPath() + "/api")
 	auth.New(services.Identity, identity.RealmApp).RegisterHandler(api)
 	protected := api.Group("", httpx.RequireUser())
 	for _, handler := range []routers.Handler{

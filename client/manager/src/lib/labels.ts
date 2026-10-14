@@ -37,6 +37,7 @@ export const toolLabel: Record<string, string> = {
   ask_persona: "让分身预演",
   list_upcoming: "查看近期提醒",
   create_reminder: "建立提醒",
+  cancel_reminder: "取消提醒",
   load_skill: "读做事手册",
   now: "当前时间",
 };

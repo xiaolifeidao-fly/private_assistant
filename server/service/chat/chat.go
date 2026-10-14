@@ -257,21 +257,21 @@ func (s *Service) Send(ctx context.Context, owner Owner, conversationKey string,
 	if err != nil {
 		return err
 	}
+	item, err := s.bots.Get(ctx, owner.FamilyKey, conversation.BotKey)
+	if err != nil {
+		return err
+	}
 	var attachment *attachmentMeta
 	var attachmentText string
 	if input.NoteKey != "" {
 		emit(Event{Type: "status", Text: "正在看照片、整理成记忆…"})
-		attachment, attachmentText, err = s.ingestAttachment(ctx, owner.FamilyKey, input.NoteKey)
+		attachment, attachmentText, err = s.ingestAttachment(ctx, owner.FamilyKey, item, input.NoteKey)
 		if err != nil {
 			return err
 		}
 		if text == "" {
-			text = fmt.Sprintf("（拍了 %d 张照片）", attachment.Photos)
+			text = fmt.Sprintf("（发了 %d 张照片）", attachment.Photos)
 		}
-	}
-	item, err := s.bots.Get(ctx, owner.FamilyKey, conversation.BotKey)
-	if err != nil {
-		return err
 	}
 
 	// 首条消息时冻结系统提示词和工具列表，之后整个会话不再改动。

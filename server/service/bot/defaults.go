@@ -12,6 +12,7 @@ const (
 	ToolAskPersona     = "ask_persona"
 	ToolListUpcoming   = "list_upcoming"
 	ToolCreateReminder = "create_reminder"
+	ToolCancelReminder = "cancel_reminder"
 	ToolLoadSkill      = "load_skill"
 )
 
@@ -32,6 +33,14 @@ func defaults() []Bot {
 			RouteTask:   "chat.recall", MemoryScope: ScopeAll,
 			Tools:        []string{ToolSearchMemory, ToolGetPerson, ToolGetPlace, ToolListUpcoming, ToolRemember, ToolNow},
 			SystemPrompt: recallPrompt,
+		},
+		{
+			BotKey: "remind", Name: "提醒", Kind: KindAssistant, Avatar: "⏰", Sort: 1,
+			Description: "说一句要做的事，自动整理成几点提醒什么，到点推送到手机",
+			Greeting:    "要提醒什么？直接说，比如「明早 8 点给妈打电话」「周五下班前交报销」。改时间、取消、看看最近有哪些提醒也可以跟我说。",
+			RouteTask:   "chat.remind", MemoryScope: ScopeAll,
+			Tools:        []string{ToolListUpcoming, ToolCreateReminder, ToolCancelReminder, ToolSearchMemory, ToolGetPerson, ToolNow},
+			SystemPrompt: remindPrompt,
 		},
 		{
 			BotKey: "wife", Name: "老婆（分身）", Kind: KindPersona, PersonKey: "wife", Avatar: "🌷", Sort: 2,
@@ -102,6 +111,28 @@ const recallPrompt = `你是我们家的「万能通」：家里所有事情的�
 4. 带照片的消息：系统已经先看过照片、整理好了，结果在 <attachment> 里。照着它简短确认记下了什么（东西、用途、位置），位置没说清的追问一句放在哪；不要再用 remember 重复记。
 
 风格：先给答案，再给依据；越短越好，像家里最靠谱的那个人随口告诉我。你不负责出主意、不分析感情问题——我要是问「该怎么办」，简单答完后提醒我可以去问「私人助理」。`
+
+const remindPrompt = `你是我的「提醒」助手。我工作忙、记性差，随口说一件要做的事，你把它整理成一条到点会推送到我手机的提醒。
+
+怎么做：
+1. 从我的话里找出两件事：**做什么**、**什么时候开始做**。当前时间在每轮开头的 <turn_context> 里，「明天」「周五」「下周三晚上」「半小时后」都按它换算成具体的 YYYY-MM-DD HH:MM。
+2. 时间说得不完整时按常识补，不要来回追问：
+   - 只说了日子没说几点：早上 9:00；「早上」8:00、「中午」12:00、「下午」15:00、「下班前/傍晚」17:30、「晚上」20:00、「睡前」21:30。
+   - 「X 点」在 1–6 之间又没说上午下午，按下午算（我不会半夜三点做事）。
+   - 算出来的时间已经过去了：说的是「X 点」就顺延到明天这个点，并告诉我。
+   - 完全没有时间（「提醒我买牛奶」）：才问一句「什么时候提醒你？」，别的都不要问。
+3. 用 create_reminder 建提醒：
+   - title：动作开头，12 个字以内，比如「给妈打电话」「交报销单」；
+   - body：补充细节（找谁、带什么、注意什么），我没说就写一句我的原话；
+   - remind_at：开始做这件事的时间；event_at：事情本身的时间，和 remind_at 一样就不填。
+   - 要准备的事（赴约、出门、送礼）我说了「提前」才多建一条提前提醒；没说就只建一条，回复里问一句要不要提前。
+   - 一句话里有好几件事就建好几条。
+4. 建完用一两句话确认，格式像：「好，**10月15日（周三）08:00** 提醒你：给妈打电话。」不要复述我的原话，不要啰嗦。
+5. 改时间或取消：先用 list_upcoming 找到那条（每条前面有编号），cancel_reminder 取消；改时间就取消旧的再建新的，然后告诉我改成了几点。
+6. 我问「最近有什么提醒」「明天要做什么」，用 list_upcoming 查，按时间列出来。
+7. 提到家里人（「老婆生日前一周」「妈的复查」）且我没说日子时，可以用 get_person、search_memory 查一下日期；查不到就问我。
+
+你只管提醒，不出主意、不分析感情问题；我要是问「该怎么办」，简单答完提醒我去问「私人助理」。`
 
 const personaPrompt = `你在模拟 {{person_name}}（我的{{person_role}}）的视角，帮我理解她的想法和感受。下面会给你她的档案和关于她的记忆，这是你了解她的全部依据。
 

@@ -14,6 +14,7 @@ import type { Memory, Note, Paged, PersonaCard, Reminder, Trip } from "@/lib/typ
 import { MemoryPopup } from "@/components/memory-popup";
 import { NoteSheet, noteStatus } from "@/components/note-sheet";
 import { PushCard } from "@/components/push-card";
+import { ReminderSheet, reminderMeta } from "@/components/reminder-sheet";
 import { TripSheet } from "@/components/trip-sheet";
 import { Avatar, Card, Empty, PageHeader, Pill, Row, Section, Skeleton, Tip } from "@/components/ui";
 
@@ -31,6 +32,7 @@ export default function TodayPage() {
   const [openNote, setOpenNote] = useState<Note | null>(null);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [openReminder, setOpenReminder] = useState<Reminder | null>(null);
   const [tripOpen, setTripOpen] = useState(false);
   const [leaving, setLeaving] = useState<Record<string, string>>({});
   const [changes, setChanges] = useState<PersonaCard[]>([]);
@@ -63,6 +65,21 @@ export default function TodayPage() {
     void load();
   }, [load]);
   useOnResume(() => void load());
+
+  // 点承诺到期的推送会带 ?memory=xxx 进来，直接打开那条记忆
+  useEffect(() => {
+    const key = new URLSearchParams(window.location.search).get("memory");
+    if (!key) return;
+    setViewing(key);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
+  // 由记忆派生的打开记忆；生日、节日、行程跳到对应页面；其余（含聊天里建的）在弹层里看全文、取消、回对话
+  const openReminderItem = (item: Reminder) => {
+    if (item.sourceType === "memory" && item.sourceKey) setViewing(item.sourceKey);
+    else if (item.targetUrl && !item.targetUrl.startsWith("/today") && !item.targetUrl.startsWith("/chat/")) router.push(item.targetUrl);
+    else setOpenReminder(item);
+  };
 
   // 有正在整理的记录时每 5 秒只刷新记录列表；全部整理完再整页刷新一次，把新的待确认带出来
   const busy = notes.some(isBusy);
@@ -307,8 +324,8 @@ export default function TodayPage() {
                           {reminderDescription(item) && <span className="today-remind-desc">{reminderDescription(item)}</span>}
                         </>
                       }
-                      chevron={!!item.targetUrl}
-                      onClick={item.targetUrl ? () => router.push(item.targetUrl) : undefined}
+                      chevron
+                      onClick={() => openReminderItem(item)}
                     />
                   );
                 })}
@@ -349,6 +366,7 @@ export default function TodayPage() {
       )}
 
       <MemoryPopup memoryKey={viewing} onClose={() => setViewing(null)} />
+      <ReminderSheet reminder={openReminder} onClose={() => setOpenReminder(null)} onChanged={load} />
       <NoteSheet note={openNote} onClose={() => setOpenNote(null)} onChanged={load} onMemory={setViewing} />
       <TripSheet open={tripOpen} onClose={() => setTripOpen(false)} onCreated={() => void load()} />
 
@@ -529,16 +547,6 @@ function Stat({ label, value, tone, onClick }: { label: string; value: number; t
     </button>
   );
 }
-
-const reminderMeta: Record<string, { label: string; tone: Tone }> = {
-  daily: { label: "今日", tone: "sage" },
-  birthday: { label: "生日", tone: "rose" },
-  commitment: { label: "承诺", tone: "clay" },
-  dated: { label: "日期", tone: "plum" },
-  festival: { label: "节日", tone: "amber" },
-  trip: { label: "行程", tone: "sky" },
-  manual: { label: "提醒", tone: "slate" },
-};
 
 function reminderDescription(item: Reminder): string {
   if (item.kind === "trip") return "打开查看行前简报";

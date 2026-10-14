@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"strings"
 
+	"service/bot"
 	"service/intake"
 )
 
-// 带照片的消息（万能通）：照片先存成原始记录（channel=capture），这一轮当场整理成记忆，
+// 带照片的消息（所有对话都支持，拍照或粘贴）：照片先存成原始记录（channel=capture），这一轮当场整理成记忆，
 // 整理结果以 <attachment> 块交给模型；模型只看文字，不在对话历史里放图片（省 token，历史也稳定）。
 // 回答里引用到带照片的记忆时，把照片引用写进回答的 meta，手机端显示原图。
 
@@ -31,7 +32,7 @@ type photoMeta struct {
 	Index     int    `json:"index"`
 }
 
-func (s *Service) ingestAttachment(ctx context.Context, familyKey, noteKey string) (*attachmentMeta, string, error) {
+func (s *Service) ingestAttachment(ctx context.Context, familyKey string, item bot.Bot, noteKey string) (*attachmentMeta, string, error) {
 	if s.notes == nil {
 		return nil, "", fmt.Errorf("这个服务没有开启照片整理")
 	}
@@ -52,7 +53,7 @@ func (s *Service) ingestAttachment(ctx context.Context, familyKey, noteKey strin
 		meta.Memories = append(meta.Memories, note.Result.Pending...)
 		meta.Memories = append(meta.Memories, note.Result.Updated...)
 		meta.Memories = append(meta.Memories, note.Result.Duplicates...)
-		fmt.Fprintf(&builder, "我刚拍了 %d 张照片并做了说明（就是下面我说的话）。系统已经看过照片，整理结果：%s\n", meta.Photos, note.Result.Summary)
+		fmt.Fprintf(&builder, "我刚发了 %d 张照片（截图或拍照），下面是我说的话。系统已经看过照片，整理结果：%s\n", meta.Photos, note.Result.Summary)
 		groups := []struct {
 			label string
 			keys  []string
@@ -71,14 +72,30 @@ func (s *Service) ingestAttachment(ctx context.Context, familyKey, noteKey strin
 		if len(note.Result.UnknownPersons) > 0 {
 			fmt.Fprintf(&builder, "认不出的人：%s\n", strings.Join(note.Result.UnknownPersons, "、"))
 		}
-		builder.WriteString("请简短告诉我记下了什么（东西、用途、位置），引用记忆编号；位置没说清的，问我放在哪。不要再用 remember 重复记这些内容。\n")
+		builder.WriteString(attachmentAsk(item))
 	case note.ExtractStatus == intake.StatusFailed || note.ExtractError != "":
-		fmt.Fprintf(&builder, "我刚拍了 %d 张照片，照片已经保存，但整理失败了：%s。告诉我照片存好了、稍后会自动重试，不要编造照片内容。\n", meta.Photos, note.ExtractError)
+		fmt.Fprintf(&builder, "我刚发了 %d 张照片，照片已经保存，但没看成：%s。告诉我照片存好了、稍后会自动重试，不要编造照片内容。\n", meta.Photos, note.ExtractError)
 	default:
-		fmt.Fprintf(&builder, "我刚拍了 %d 张照片，照片已经保存，还在后台整理。告诉我整理好后可以在「速记」里查看，不要编造照片内容。\n", meta.Photos)
+		fmt.Fprintf(&builder, "我刚发了 %d 张照片，照片已经保存，还在后台整理。告诉我整理好后可以在「速记」里查看，不要编造照片内容。\n", meta.Photos)
 	}
 	builder.WriteString("</attachment>")
 	return meta, builder.String(), nil
+}
+
+// attachmentAsk 是整理结果之后给模型的要求，按对话的角色分：
+// 万能通报记下了什么、问位置；提醒看照片里有没有要提醒的时间；分身以 TA 的身份回应；其余按我的话回答。
+func attachmentAsk(item bot.Bot) string {
+	const noRepeat = "照片里的内容已经记下了，不要再用 remember 重复记。只依据上面的整理结果说照片里有什么，不要编造。\n"
+	switch {
+	case item.Kind == bot.KindPersona:
+		return "按你的身份回应我发的照片和我说的话；整理结果里认不出或没看到的，就当没看到，不要编造。\n"
+	case item.BotKey == "recall":
+		return "请简短告诉我记下了什么（东西、用途、位置），引用记忆编号；位置没说清的，问我放在哪。" + noRepeat
+	case item.BotKey == "remind":
+		return "看照片里有没有要我去做、有时间点的事（通知、日程、缴费单、聊天截图里的约定），按平常的规则整理成提醒；时间不清楚的问我。" + noRepeat
+	default:
+		return "结合整理结果回答我说的话；我只发了照片没说什么的，简短告诉我记下了什么，引用记忆编号。" + noRepeat
+	}
 }
 
 // citedPhotos 收集回答里引用到的记忆所附的照片，按引用顺序，最多 9 张。

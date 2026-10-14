@@ -158,6 +158,15 @@ func toolSpecs() map[string]toolSpec {
 			},
 			run: runCreateReminder,
 		},
+		bot.ToolCancelReminder: {
+			definition: llm.Tool{
+				Name: bot.ToolCancelReminder, Description: "取消一条还没提醒的提醒。编号从 list_upcoming 的结果里取。改时间时先取消旧的再建新的。",
+				Properties: map[string]any{
+					"reminder_key": map[string]any{"type": "string", "description": "提醒编号，如 rmd_xxx"},
+				}, Required: []string{"reminder_key"},
+			},
+			run: runCancelReminder,
+		},
 		bot.ToolLoadSkill: {
 			definition: llm.Tool{
 				Name:        bot.ToolLoadSkill,
@@ -546,7 +555,7 @@ func runListUpcoming(ctx context.Context, s *Service, scope toolScope, input jso
 	}
 	lines := make([]string, 0, len(items))
 	for _, item := range items {
-		lines = append(lines, fmt.Sprintf("- [%s] %s：%s", item.RemindAt.In(time.Local).Format("2006-01-02 15:04"), item.Title, item.Body))
+		lines = append(lines, fmt.Sprintf("- %s [%s] %s：%s", item.ReminderKey, item.RemindAt.In(time.Local).Format("2006-01-02 15:04"), item.Title, item.Body))
 	}
 	return strings.Join(lines, "\n"), nil
 }
@@ -586,13 +595,38 @@ func runCreateReminder(ctx context.Context, s *Service, scope toolScope, input j
 	if err != nil {
 		return "", err
 	}
+	// 点通知或近期提醒时回到建这条提醒的对话，能接着改时间或取消。
+	targetURL := "/today"
+	if scope.conversationKey != "" {
+		targetURL = "/chat/" + scope.conversationKey
+	}
 	created, err := s.reminders.CreateManual(ctx, scope.familyKey, reminder.ManualInput{
-		Title: args.Title, Body: args.Body, RemindAt: *remindAt, EventAt: eventAt, TargetURL: "/today",
+		Title: args.Title, Body: args.Body, RemindAt: *remindAt, EventAt: eventAt, TargetURL: targetURL,
 	})
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("已建立提醒 %s，将在 %s 提醒。", created.ReminderKey, created.RemindAt.Format("2006-01-02 15:04")), nil
+}
+
+func runCancelReminder(ctx context.Context, s *Service, scope toolScope, input json.RawMessage) (string, error) {
+	if scope.bot.Kind != bot.KindAssistant {
+		return "", errors.New("只有助理可以取消提醒")
+	}
+	var args struct {
+		ReminderKey string `json:"reminder_key"`
+	}
+	if err := decodeInput(input, &args); err != nil {
+		return "", err
+	}
+	key := strings.TrimSpace(args.ReminderKey)
+	if key == "" {
+		return "", errors.New("reminder_key 不能为空")
+	}
+	if err := s.reminders.Dismiss(ctx, scope.familyKey, key); err != nil {
+		return "", fmt.Errorf("取消提醒 %s 失败：%w", key, err)
+	}
+	return "已取消提醒 " + key + "。", nil
 }
 
 func runLoadSkill(ctx context.Context, s *Service, scope toolScope, input json.RawMessage) (string, error) {

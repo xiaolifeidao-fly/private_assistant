@@ -109,12 +109,14 @@ func (s *Service) deliver(ctx context.Context, familyKey string, item Reminder) 
 		notificationBody = "出发前简报已准备好，打开查看称呼、雷区和当地规矩。"
 	}
 	payload, _ := json.Marshal(map[string]any{"title": item.Title, "body": notificationBody, "url": defaultString(item.TargetURL, "/today"), "tag": item.ReminderKey})
+	// webpush-go 会给非 https 的 subject 自动补 "mailto:"；配置里已带前缀会变成 "mailto:mailto:"，Apple 直接 403 BadJwtToken。
+	subscriber := strings.TrimPrefix(strings.TrimSpace(s.config.VAPIDSubject), "mailto:")
 	sent, failed := 0, 0
 	var lastErr error
 	for _, subscription := range subscriptions {
 		response, err := webpush.SendNotificationWithContext(ctx, payload, &webpush.Subscription{Endpoint: subscription.Endpoint,
 			Keys: webpush.Keys{P256dh: subscription.P256dh, Auth: subscription.Auth}}, &webpush.Options{
-			Subscriber: s.config.VAPIDSubject, VAPIDPublicKey: s.config.VAPIDPublicKey, VAPIDPrivateKey: s.config.VAPIDPrivateKey,
+			Subscriber: subscriber, VAPIDPublicKey: s.config.VAPIDPublicKey, VAPIDPrivateKey: s.config.VAPIDPrivateKey,
 			TTL: 24 * 3600, Urgency: webpush.UrgencyNormal, Topic: pushTopic(item.ReminderKey),
 		})
 		status, errorText := 0, ""
@@ -147,8 +149,14 @@ func (s *Service) deliver(ctx context.Context, familyKey string, item Reminder) 
 	return sent, failed, lastErr
 }
 
+// Topic 同一提醒重复推送时只保留最新一条。Apple 对字符很挑剔（带 "-" 会回 400 BadWebPushTopic），只留字母数字。
 func pushTopic(key string) string {
-	value := strings.ReplaceAll(key, "_", "-")
+	value := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			return r
+		}
+		return -1
+	}, key)
 	if len(value) > 32 {
 		value = value[len(value)-32:]
 	}
