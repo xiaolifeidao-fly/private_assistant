@@ -3,13 +3,16 @@ package wire
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
 
+	"common/viewer"
 	"service/bot"
 	"service/chat"
+	"service/diet"
 	"service/family"
 	"service/identity"
 	"service/insight"
@@ -41,6 +44,7 @@ type Services struct {
 	Skills   *skill.Service
 	Settings *setting.Service
 	Insight  *insight.Service
+	Diet     *diet.Service
 }
 
 type Options struct {
@@ -98,6 +102,10 @@ func vectorStore(database *gorm.DB, options Options) memory.VectorStore {
 }
 
 func Build(database *gorm.DB, options Options) *Services {
+	// 记忆、原始记录、提醒的可见范围在数据访问层强制（common/viewer）
+	if err := database.Use(viewer.Plugin{}); err != nil && !errors.Is(err, gorm.ErrRegistered) {
+		log.Fatalf("注册可见范围插件失败: %v", err)
+	}
 	if options.StorageDir == "" {
 		options.StorageDir = "../data"
 	}
@@ -134,35 +142,45 @@ func Build(database *gorm.DB, options Options) *Services {
 	reminderService := reminder.New(database, familyService, memoryService, reminder.Config{
 		VAPIDPublicKey: options.VAPIDPublicKey, VAPIDPrivateKey: options.VAPIDPrivateKey, VAPIDSubject: options.VAPIDSubject,
 	})
+	dietService := diet.New(database, familyService, gateway, storage)
 	intakeService := intake.New(database, familyService, memoryService, gateway, storage, intake.Config{AutoConfirm: options.AutoConfirm})
+	identityService := identity.New(database, options.Identity)
+	// 后台任务没有登录账号，按「我自己」的账号看记录：看得到我的私有记录，看不到奶奶的
+	viewer.SystemAccounts = identityService.SystemAccounts
+	dietService.SetNotifier(reminderService, identityService.PlanAccounts)
 	return &Services{
-		Identity: identity.New(database, options.Identity),
+		Identity: identityService,
 		Family:   familyService,
 		Memory:   memoryService,
 		Bots:     botService,
 		LLM:      gateway,
-		Chat:     chat.New(database, familyService, memoryService, botService, gateway, personaService, reminderService, skillService, settingService, intakeService),
+		Chat:     chat.New(database, familyService, memoryService, botService, gateway, personaService, reminderService, skillService, settingService, intakeService, dietService),
 		Persona:  personaService,
 		Reminder: reminderService,
 		Skills:   skillService,
 		Settings: settingService,
 		Insight:  insight.New(database, memoryService, familyService, gateway, reminderService, settingService),
 		Intake:   intakeService,
+		Diet:     dietService,
 	}
 }
 
 // StartWorkers 启动后台任务：原始记录抽取、人设卡刷新、提醒、对话自动学习。两个进程都跑也没问题（按行抢占 / 分布式锁）。
 func (s *Services) StartWorkers(ctx context.Context) {
-	go s.Intake.Run(ctx)
-	go s.Persona.RunScheduler(ctx)
-	go s.Reminder.RunScheduler(ctx)
-	go s.Chat.RunLearner(ctx, s.Intake)
-	go s.Insight.RunScheduler(ctx)
+	// 每个后台任务都要声明身份（common/viewer），没声明的查询会被拒绝：
+	// 领取待整理的记录、到点推送要看到所有人的（Unscoped）；人设卡、周洞察、对话学习按我自己的账号看（AsSystem）
+	go s.Intake.Run(viewer.Unscoped(ctx))
+	go s.Persona.RunScheduler(viewer.AsSystem(ctx))
+	go s.Reminder.RunScheduler(viewer.Unscoped(ctx))
+	go s.Chat.RunLearner(viewer.AsSystem(ctx), s.Intake)
+	go s.Insight.RunScheduler(viewer.AsSystem(ctx))
+	// 饮食周点评：饮食表全家共用；推送时按每个收件人的账号建提醒
+	go s.Diet.RunScheduler(viewer.AsSystem(ctx))
 }
 
 // Seed 写入默认机器人和配置文件里给的模型提供商，并在后台补算缺失的向量。
 func (s *Services) Seed(options Options) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(viewer.AsSystem(context.Background()), 30*time.Second)
 	defer cancel()
 	if err := s.Bots.EnsureDefaults(ctx, DefaultFamily); err != nil {
 		log.Printf("写入默认机器人失败: %v", err)
@@ -189,7 +207,8 @@ func (s *Services) Seed(options Options) {
 // 管理端换了 embedding 路由后再跑一次（换模型 = 全部重算，旧模型的向量被覆盖）。
 func (s *Services) ReindexInBackground() {
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		// 补算向量不看是谁的，每个人的记录都要能被自己搜到
+		ctx, cancel := context.WithTimeout(viewer.Unscoped(context.Background()), 30*time.Minute)
 		defer cancel()
 		if err := s.Memory.PrepareVectors(ctx, DefaultFamily); err != nil {
 			log.Printf("%v", err)

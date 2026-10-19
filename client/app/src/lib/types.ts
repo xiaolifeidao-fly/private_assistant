@@ -90,6 +90,9 @@ export interface Memory {
   supersedesKey: string;
   sourceNoteKey: string;
   createdBy: string;
+  /** 归属账号；visibility=private 时只有它看得到 */
+  ownerAccount: string;
+  visibility: "private" | "family";
   useCount: number;
   lastUsedAt: string | null;
   createdAt: string;
@@ -230,6 +233,8 @@ export interface Note {
   result: NoteResult | null;
   extractError: string;
   createdBy: string;
+  ownerAccount: string;
+  visibility: "private" | "family";
   createdAt: string;
 }
 
@@ -256,6 +261,8 @@ export interface Reminder {
   status: "scheduled" | "sending" | "sent" | "failed" | "dismissed" | "cancelled";
   sourceType: string;
   sourceKey: string;
+  ownerAccount: string;
+  visibility: "private" | "family";
   targetUrl: string;
   attempts: number;
   lastError: string;
@@ -275,5 +282,76 @@ export interface Trip {
   status: "planned" | "done" | "cancelled";
   brief?: string;
   createdAt: string;
+  updatedAt: string;
+}
+
+/* ---------- 孩子饮食（service/diet） ---------- */
+
+export interface DietMeal {
+  key: string;
+  label: string;
+  clock: string;
+}
+
+export interface DietPlan {
+  planKey: string;
+  childKey: string;
+  date: string;
+  /** day = 全天要求 */
+  meal: string;
+  foods: string;
+  note: string;
+  createdBy: string;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface DietRecord {
+  recordKey: string;
+  childKey: string;
+  eatenAt: string;
+  meal: string;
+  foods: string;
+  amount: string;
+  note: string;
+  /** manual 手填 / capture 拍照或说一句、模型整理 */
+  source: string;
+  rawText: string;
+  photoCount: number;
+  captureKey: string;
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DietOverview {
+  childKey: string;
+  childLabel: string;
+  from: string;
+  days: number;
+  canPlan: boolean;
+  meals: DietMeal[];
+  plans: DietPlan[];
+  records: DietRecord[];
+}
+
+export interface DietCaptureResult {
+  records: DietRecord[];
+  reply: string;
+  fallback: boolean;
+}
+
+export interface DietPlanCaptureResult {
+  changed: DietPlan[];
+  reply: string;
+}
+
+export interface DietReview {
+  reviewKey: string;
+  childKey: string;
+  weekStart: string;
+  content: string;
+  createdBy: string;
   updatedAt: string;
 }

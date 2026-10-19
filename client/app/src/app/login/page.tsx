@@ -7,6 +7,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { api, getToken, setToken } from "@/lib/api";
 import { withBase } from "@/lib/base-path";
 import { Button } from "@/components/ui";
+import { fetchMe, homeOf, roleOf } from "@/lib/role";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,7 +31,9 @@ export default function LoginPage() {
     try {
       const result = await api.post<{ token: string }>("/auth/login", { username: username.trim(), password });
       setToken(result.token);
-      router.replace("/");
+      // 奶奶的账号直接进长辈模式
+      const me = await fetchMe().catch(() => null);
+      router.replace(homeOf(roleOf(me)));
     } catch (error) {
       Toast.show({ content: (error as Error).message });
     } finally {

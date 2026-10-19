@@ -8,6 +8,7 @@ import { personLabel, usePersons } from "@/lib/family";
 import { personTone, typeTone } from "@/lib/tone";
 import type { Memory } from "@/lib/types";
 import { PhotoStrip } from "./photos";
+import { VisibilitySwitch } from "./visibility";
 import { Loading, Pill, Sheet } from "./ui";
 
 const statusText: Record<string, string> = { pending: "待确认", active: "生效中", superseded: "已过时", archived: "已归档", rejected: "已驳回" };
@@ -49,6 +50,7 @@ export function MemoryPopup({ memoryKey, onClose }: { memoryKey: string | null; 
             {attrs.location && <div><span>放在</span><b style={{ textAlign: "right", maxWidth: "75%" }}>{attrs.location}</b></div>}
             {attrs.usage && <div><span>用途</span><span style={{ textAlign: "right", maxWidth: "75%" }}>{attrs.usage}</span></div>}
             <div><span>{memory.type === "item" ? "记录于" : "发生在"}</span>{dayjs(memory.occurredAt ?? memory.createdAt).format("YYYY年M月D日 HH:mm")}</div>
+            <div><span>谁能看到</span><VisibilitySwitch kind="memories" itemKey={memory.memoryKey} item={memory} onChanged={setMemory} /></div>
             <div><span>重要程度</span>
               <span className="memory-dots">{Array.from({ length: 5 }, (_, i) => <i key={i} data-on={i < memory.importance} />)}</span>
             </div>

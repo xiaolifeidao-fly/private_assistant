@@ -63,6 +63,8 @@ func (h *Handler) create(c *gin.Context) {
 		Channel:   strings.TrimSpace(c.PostForm("channel")),
 		Text:      c.PostForm("text"),
 		CreatedBy: httpx.MustUser(c).Realm,
+		// private（默认，只有自己看得到）/ family（全家可见）；奶奶的账号只能 private
+		Visibility: strings.TrimSpace(c.PostForm("visibility")),
 		// inline=1：对话里带的照片，接下来发消息时当场整理
 		Inline: c.PostForm("inline") == "1",
 	}

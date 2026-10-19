@@ -14,6 +14,7 @@ const (
 	ToolCreateReminder = "create_reminder"
 	ToolCancelReminder = "cancel_reminder"
 	ToolLoadSkill      = "load_skill"
+	ToolDietOverview   = "diet_overview"
 )
 
 func defaults() []Bot {
@@ -23,7 +24,7 @@ func defaults() []Bot {
 			Description: "记住家里的事，帮我想清楚怎么做、怎么说",
 			Greeting:    "我在。可以让我记一件事，也可以问我「她以前说过什么」「这事我该怎么处理」。",
 			RouteTask:   "chat.assistant", MemoryScope: ScopeAll,
-			Tools:        []string{ToolSearchMemory, ToolGetPerson, ToolGetRelations, ToolGetPlace, ToolOpenItems, ToolListUpcoming, ToolCreateReminder, ToolRemember, ToolAskPersona, ToolLoadSkill, ToolNow},
+			Tools:        []string{ToolSearchMemory, ToolGetPerson, ToolGetRelations, ToolGetPlace, ToolOpenItems, ToolListUpcoming, ToolCreateReminder, ToolRemember, ToolAskPersona, ToolDietOverview, ToolLoadSkill, ToolNow},
 			SystemPrompt: assistantPrompt,
 		},
 		{
@@ -31,7 +32,7 @@ func defaults() []Bot {
 			Description: "东西放哪了、发生过什么、谁说过什么，问它；拍张照说一句就能记下",
 			Greeting:    "想找什么、想起什么，直接问。要记东西放在哪：拍张照，说一下这是什么、干什么用、放在哪。",
 			RouteTask:   "chat.recall", MemoryScope: ScopeAll,
-			Tools:        []string{ToolSearchMemory, ToolGetPerson, ToolGetPlace, ToolListUpcoming, ToolRemember, ToolNow},
+			Tools:        []string{ToolSearchMemory, ToolGetPerson, ToolGetPlace, ToolListUpcoming, ToolRemember, ToolDietOverview, ToolNow},
 			SystemPrompt: recallPrompt,
 		},
 		{
@@ -63,7 +64,7 @@ func defaults() []Bot {
 			Description: "女儿的饮食、作息、喜好和成长，帮我想怎么带她",
 			Greeting:    "想了解女儿最近的什么？吃饭、睡觉、上幼儿园、她喜欢什么，都可以问。",
 			RouteTask:   "chat.persona", MemoryScope: ScopePerson,
-			Tools:        []string{ToolSearchMemory, ToolGetPerson, ToolGetRelations, ToolLoadSkill, ToolNow},
+			Tools:        []string{ToolSearchMemory, ToolGetPerson, ToolGetRelations, ToolDietOverview, ToolLoadSkill, ToolNow},
 			SystemPrompt: daughterPrompt,
 		},
 	}
@@ -150,6 +151,6 @@ const daughterPrompt = `你是女儿 {{person_name}} 的成长档案顾问。她
 怎么做：
 - 先查记忆再回答，引用依据。记忆里没有的就说不知道，建议我去问老婆或我妈、或者观察一下，并提醒我观察到了可以让助理记下来。
 - 给建议时考虑这个年龄段孩子的普遍特点，但以记忆里她本人的情况为准。
-- 涉及吃什么时，先确认过敏和不爱吃的东西。
+- 涉及吃什么时，先确认过敏和不爱吃的东西；问最近吃得怎么样、有没有按计划吃，用 diet_overview 查饮食计划和每天实际吃了什么。
 - 如果话题涉及老婆和我妈在带孩子上的分歧，帮我看到双方各自的出发点，不站队。
 - 涉及发烧、受伤、过敏反应等健康问题，提醒及时就医，不替代医生判断。`

@@ -23,6 +23,8 @@ type noteRow struct {
 	ExtractResult   db.JSON
 	ExtractError    *string
 	CreatedBy       string
+	OwnerAccount    string
+	Visibility      string
 	CreatedAt       time.Time
 }
 
@@ -38,7 +40,7 @@ func (row noteRow) toDTO() Note {
 	note := Note{
 		NoteKey: row.NoteKey, Channel: row.Channel, RawText: row.RawText, Attachments: row.attachments(),
 		AboutPersons: []string(row.AboutPersons), OccurredAt: row.OccurredAt, ExtractStatus: row.ExtractStatus,
-		ExtractAttempts: row.ExtractAttempts, ExtractedAt: row.ExtractedAt, CreatedBy: row.CreatedBy, CreatedAt: row.CreatedAt,
+		ExtractAttempts: row.ExtractAttempts, ExtractedAt: row.ExtractedAt, CreatedBy: row.CreatedBy, OwnerAccount: row.OwnerAccount, Visibility: row.Visibility, CreatedAt: row.CreatedAt,
 	}
 	if note.Attachments == nil {
 		note.Attachments = []Attachment{}

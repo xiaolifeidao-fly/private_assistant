@@ -9,6 +9,7 @@ import { upcomingDay } from "@/lib/time";
 import type { Tone } from "@/lib/tone";
 import type { Reminder } from "@/lib/types";
 import { Button, Pill, Sheet, useLatest } from "./ui";
+import { VisibilitySwitch } from "./visibility";
 
 export const reminderMeta: Record<string, { label: string; tone: Tone }> = {
   daily: { label: "今日", tone: "sage" },
@@ -25,7 +26,10 @@ const statusText: Record<string, string> = { scheduled: "待提醒", failed: "�
 /** 一条提醒的详情：完整内容、时间，聊天里建的能回到原对话，还没推送的能取消。 */
 export function ReminderSheet({ reminder: current, onClose, onChanged }: { reminder: Reminder | null; onClose: () => void; onChanged: () => void }) {
   const router = useRouter();
-  const item = useLatest(current);
+  const latest = useLatest(current);
+  // 改了可见范围后用新的那份显示
+  const [changed, setChanged] = useState<Reminder | null>(null);
+  const item = changed && latest && changed.reminderKey === latest.reminderKey ? changed : latest;
   const [busy, setBusy] = useState(false);
   const meta = item ? reminderMeta[item.kind] ?? reminderMeta.manual : reminderMeta.manual;
   const fromChat = !!item?.targetUrl?.startsWith("/chat/");
@@ -60,6 +64,9 @@ export function ReminderSheet({ reminder: current, onClose, onChanged }: { remin
           <div style={{ fontSize: 13.5, color: "var(--pa-text-2)", marginTop: 6 }}>
             {upcomingDay(item.remindAt).label} {dayjs(item.remindAt).format("M月D日 HH:mm")} 提醒
             {item.eventAt && !dayjs(item.eventAt).isSame(item.remindAt, "minute") && <> · 事情在 {dayjs(item.eventAt).format("M月D日")}</>}
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <VisibilitySwitch kind="reminders" itemKey={item.reminderKey} item={item} onChanged={(next) => { setChanged(next); onChanged(); }} />
           </div>
           {item.body && item.body.trim() !== item.title.trim() && (
             <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 12, background: "var(--pa-fill)", fontSize: 15, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>

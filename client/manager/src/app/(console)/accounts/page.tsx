@@ -35,6 +35,22 @@ export default function AccountsPage() {
   );
 }
 
+const managerRoles = [{ value: "member", label: "成员" }, { value: "admin", label: "管理员" }];
+// 手机端的角色决定界面和能用的机器人（服务端 identity/role.go 同步限制）
+const appRoles = [
+  { value: "admin", label: "我自己（全部功能）" },
+  { value: "member", label: "成员（全部功能）" },
+  { value: "spouse", label: "老婆（万能通、提醒）" },
+  { value: "elder", label: "奶奶 · 长辈模式（大字、语音）" },
+];
+
+function RolePill({ role }: { role: string }) {
+  if (role === "admin") return <Pill tone="clay">管理员</Pill>;
+  if (role === "spouse") return <Pill tone="rose">老婆</Pill>;
+  if (role === "elder") return <Pill tone="amber">长辈模式</Pill>;
+  return <Pill>成员</Pill>;
+}
+
 function AccountTable({ realm }: { realm: "app" | "manager" }) {
   const { me, persons, personName } = useConsole();
   const { message } = App.useApp();
@@ -102,7 +118,7 @@ function AccountTable({ realm }: { realm: "app" | "manager" }) {
               </div>
             ),
           },
-          { title: "角色", width: 110, render: (_, a) => (a.role === "admin" ? <Pill tone="clay">管理员</Pill> : <Pill>成员</Pill>) },
+          { title: "角色", width: 110, render: (_, a) => <RolePill role={a.role} /> },
           ...(realm === "app" ? [{ title: "对应家人", width: 180, render: (_: unknown, a: Account) => (a.personKey ? <PersonTag personKey={a.personKey} size={22} /> : <span className="pa-muted">—</span>) }] : []),
           { title: "状态", width: 100, render: (_, a) => <Status tone={a.status === "active" ? "sage" : "slate"}>{a.status === "active" ? "正常" : "停用"}</Status> },
           { title: "最近登录", width: 170, render: (_, a) => <span className="pa-num" style={{ color: "var(--pa-text-2)" }}>{a.lastLoginAt ? dayjs(a.lastLoginAt).format("YYYY-MM-DD HH:mm") : "从未登录"}</span> },
@@ -136,8 +152,8 @@ function AccountTable({ realm }: { realm: "app" | "manager" }) {
           <Form.Item name="password" label={editing === "new" ? "密码" : "重置密码"} rules={editing === "new" ? [{ required: true, min: 8, message: "至少 8 位" }] : [{ min: 8, message: "至少 8 位" }]} extra={editing !== "new" ? "留空表示不修改" : undefined}>
             <Input.Password autoComplete="new-password" />
           </Form.Item>
-          <Form.Item name="role" label="角色">
-            <Select options={[{ value: "member", label: "成员" }, { value: "admin", label: "管理员" }]} />
+          <Form.Item name="role" label="角色" extra={realm === "app" ? "老婆：只有万能通和提醒；奶奶：大字、语音优先，只有万事通、记一下、提醒" : undefined}>
+            <Select options={realm === "app" ? appRoles : managerRoles} />
           </Form.Item>
           {realm === "app" && (
             <Form.Item name="personKey" label="对应家里哪个人">

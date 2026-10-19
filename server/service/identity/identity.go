@@ -207,6 +207,9 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (Accoun
 	if err := checkPassword(input.Password); err != nil {
 		return Account{}, err
 	}
+	if err := checkRole(input.Realm, input.Role); err != nil {
+		return Account{}, err
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return Account{}, err
@@ -237,6 +240,9 @@ func (s *Service) UpdateAccount(ctx context.Context, accountKey string, input Ac
 		updates["display_name"] = input.DisplayName
 	}
 	if input.Role != "" {
+		if err := checkRole(row.Realm, input.Role); err != nil {
+			return Account{}, err
+		}
 		updates["role"] = input.Role
 	}
 	if input.Status != "" {

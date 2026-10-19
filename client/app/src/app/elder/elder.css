@@ -1,0 +1,428 @@
+/* ==========================================================================
+   长辈模式（奶奶）：老花眼看得清、手指点得准。
+   正文 22px 起，按钮至少 64px 高，颜色对比加深；颜色仍走设计系统的变量，深色模式自动跟随。
+   ========================================================================== */
+
+.el-root {
+  --el-text: 22px;
+  --el-title: 30px;
+  --el-hint: 18px;
+  --el-tap: 64px;
+  min-height: 100dvh;
+  background: var(--pa-bg);
+  color: var(--pa-text);
+  font-size: var(--el-text);
+  line-height: 1.6;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 弹出的提示和对话框也放大 */
+body.elder .adm-toast-main { font-size: 20px; line-height: 1.5; padding: 14px 20px; max-width: 86vw; }
+body.elder .adm-dialog-content { font-size: 21px; line-height: 1.6; }
+body.elder .adm-dialog-title { font-size: 24px; }
+body.elder .adm-dialog-button { font-size: 21px; min-height: 60px; }
+
+/* ---------- 首页 ---------- */
+
+.el-home {
+  min-height: 100dvh;
+  padding: calc(var(--pa-safe-top) + 28px) 18px calc(var(--pa-safe-bottom) + 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.el-home-date { font-size: var(--el-hint); color: var(--pa-text-2); font-weight: 600; }
+.el-home-hello { margin: 4px 0 0; font-family: var(--pa-font-display); font-size: 34px; font-weight: 700; line-height: 1.3; }
+
+.el-cards { display: flex; flex-direction: column; gap: 16px; margin-top: 6px; }
+.el-card {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 132px;
+  padding: 20px 16px 20px 20px;
+  border-radius: 26px;
+  border: 2px solid color-mix(in srgb, var(--tone-fg) 35%, transparent);
+  background: linear-gradient(120deg, var(--tone-bg) 0%, var(--pa-surface) 85%);
+  box-shadow: var(--pa-shadow);
+  color: var(--pa-text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.2s var(--pa-spring);
+}
+.el-card:active { transform: scale(0.97); }
+.el-card-icon {
+  width: 76px;
+  height: 76px;
+  border-radius: 24px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--tone-fg);
+  color: var(--pa-surface);
+}
+.el-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.el-card-text b { font-size: var(--el-title); font-weight: 800; line-height: 1.25; }
+.el-card-text small { font-size: var(--el-hint); color: var(--pa-text-2); line-height: 1.45; }
+.el-card-go { color: var(--tone-fg); flex-shrink: 0; }
+
+.el-push {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: var(--el-tap);
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 2px dashed var(--pa-warning);
+  background: var(--pa-warning-soft);
+  color: var(--pa-text);
+  font-size: 20px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+.el-push svg { color: var(--pa-warning); flex-shrink: 0; }
+.el-signout {
+  appearance: none;
+  margin-top: auto;
+  align-self: center;
+  min-height: 52px;
+  padding: 0 24px;
+  border: 0;
+  background: none;
+  color: var(--pa-text-3);
+  font-size: 17px;
+  cursor: pointer;
+}
+
+/* ---------- 对话页 ---------- */
+
+.el-chat {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.el-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: calc(var(--pa-safe-top) + 8px) 10px 10px;
+  background: var(--pa-surface);
+  border-bottom: 1px solid var(--pa-line-strong);
+}
+.el-back, .el-read-toggle {
+  appearance: none;
+  min-width: 88px;
+  height: 56px;
+  padding: 0 10px 0 2px;
+  border: 0;
+  border-radius: 16px;
+  background: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--pa-text);
+  font-size: 20px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.el-back:active, .el-read-toggle:active { background: var(--pa-fill-strong); }
+.el-read-toggle { justify-content: flex-end; padding: 0 8px; gap: 4px; font-size: 17px; color: var(--pa-text-2); }
+.el-read-toggle[data-on="true"] { color: var(--tone-fg); }
+.el-bar-title { display: inline-flex; align-items: center; gap: 8px; font-size: 26px; font-weight: 800; color: var(--tone-fg); }
+
+.el-msgs {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 18px 14px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.el-loading { display: flex; align-items: center; gap: 10px; color: var(--pa-text-2); font-size: 20px; padding: 8px 4px; }
+.el-msg { display: flex; flex-direction: column; gap: 8px; max-width: 92%; }
+.el-msg[data-role="user"] { align-self: flex-end; align-items: flex-end; }
+.el-msg[data-role="assistant"] { align-self: flex-start; align-items: flex-start; }
+.el-bubble {
+  padding: 14px 18px;
+  border-radius: 22px;
+  font-size: var(--el-text);
+  line-height: 1.65;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.el-msg[data-role="user"] .el-bubble { background: var(--tone-fg); color: var(--pa-surface); border-bottom-right-radius: 8px; }
+.el-msg[data-role="assistant"] .el-bubble {
+  background: var(--pa-surface);
+  border: 1px solid var(--pa-line-strong);
+  border-bottom-left-radius: 8px;
+  box-shadow: var(--pa-shadow-sm);
+  white-space: normal;
+}
+/* 回答里的 Markdown 放大；记忆编号对奶奶没用，藏起来 */
+.el-bubble .rt { font-size: var(--el-text); line-height: 1.65; }
+.el-bubble .rt-h { font-size: 23px; }
+.el-bubble .rt-ref { display: none; }
+.el-thinking { display: inline-flex; align-items: center; gap: 10px; color: var(--pa-text-2); }
+
+.el-listen {
+  appearance: none;
+  height: 48px;
+  padding: 0 18px;
+  border-radius: 24px;
+  border: 1.5px solid color-mix(in srgb, var(--tone-fg) 45%, transparent);
+  background: var(--tone-bg);
+  color: var(--tone-fg);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.el-listen[data-on="true"] { background: var(--tone-fg); color: var(--pa-surface); }
+
+.el-examples { display: flex; flex-direction: column; gap: 10px; }
+.el-examples-title { font-size: var(--el-hint); color: var(--pa-text-2); padding: 0 4px; }
+.el-example {
+  appearance: none;
+  min-height: 60px;
+  padding: 12px 18px;
+  border-radius: 18px;
+  border: 1.5px solid var(--pa-line-strong);
+  background: var(--pa-elevated);
+  color: var(--pa-text);
+  font-size: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+.el-example:active { background: var(--tone-bg); }
+
+.el-input {
+  flex-shrink: 0;
+  padding: 12px 12px calc(var(--pa-safe-bottom) + 12px);
+  background: var(--pa-surface);
+  border-top: 1px solid var(--pa-line-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.el-input-row { display: flex; align-items: stretch; gap: 10px; }
+.el-side-btn {
+  appearance: none;
+  flex-shrink: 0;
+  width: 72px;
+  min-height: 76px;
+  border-radius: 20px;
+  border: 1.5px solid var(--pa-line-strong);
+  background: var(--pa-elevated);
+  color: var(--pa-text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 16px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.el-side-btn:active { background: var(--pa-fill-strong); }
+.el-side-btn:disabled { opacity: 0.4; }
+
+.el-talk {
+  appearance: none;
+  flex: 1;
+  min-height: 76px;
+  border-radius: 22px;
+  border: 0;
+  background: var(--tone-fg);
+  color: var(--pa-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  box-shadow: 0 8px 22px -10px var(--tone-fg);
+  transition: transform 0.15s var(--pa-spring), filter 0.15s;
+}
+.el-talk[data-active="true"] { transform: scale(0.97); filter: brightness(0.9); }
+.el-talk:disabled { opacity: 0.55; }
+
+.el-textarea {
+  width: 100%;
+  min-height: 84px;
+  max-height: 180px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  border: 2px solid var(--pa-line-strong);
+  background: var(--pa-elevated);
+  color: var(--pa-text);
+  font: inherit;
+  font-size: var(--el-text);
+  line-height: 1.5;
+  resize: none;
+  field-sizing: content;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.el-textarea:focus { outline: none; border-color: var(--tone-fg); }
+.el-send {
+  appearance: none;
+  flex: 1;
+  min-height: 76px;
+  border-radius: 22px;
+  border: 0;
+  background: var(--tone-fg);
+  color: var(--pa-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 26px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.el-send:disabled { opacity: 0.4; }
+
+.el-picked { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.el-picked-item { position: relative; width: 84px; height: 84px; border-radius: 16px; overflow: hidden; }
+.el-picked-item img { width: 100%; height: 100%; object-fit: cover; }
+.el-picked-item button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+.el-picked-hint { font-size: 18px; color: var(--pa-text-2); }
+.el-photo-only {
+  appearance: none;
+  min-height: 56px;
+  border-radius: 18px;
+  border: 1.5px solid var(--pa-line-strong);
+  background: var(--pa-elevated);
+  color: var(--pa-text);
+  font-size: 19px;
+  font-weight: 650;
+}
+
+/* ---------- 按住说话时的浮层 ---------- */
+
+.el-talk-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none; /* 手指还按在按钮上，浮层不能抢走事件 */
+  animation: pa-enter 0.15s var(--pa-ease) both;
+}
+.el-talk-card {
+  width: min(320px, 84vw);
+  padding: 30px 20px 26px;
+  border-radius: 28px;
+  background: var(--pa-elevated);
+  box-shadow: var(--pa-shadow-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+.el-talk-orb {
+  width: 108px;
+  height: 108px;
+  border-radius: 54px;
+  display: grid;
+  place-items: center;
+  background: var(--pa-accent);
+  color: var(--pa-accent-ink);
+  box-shadow: 0 0 0 14px var(--pa-accent-soft);
+  transition: transform 0.08s linear, background 0.15s;
+  margin-bottom: 10px;
+}
+.el-talk-orb[data-busy="true"] { background: var(--pa-fill-strong); color: var(--pa-text-2); box-shadow: none; }
+.el-talk-orb[data-busy="true"] .pa-btn-spin { width: 34px; height: 34px; border-width: 3px; }
+.el-talk-panel[data-cancel="true"] .el-talk-orb { background: var(--pa-danger); box-shadow: 0 0 0 14px var(--pa-danger-soft); }
+.el-talk-title { font-size: 26px; font-weight: 800; }
+.el-talk-panel[data-cancel="true"] .el-talk-title { color: var(--pa-danger); }
+.el-talk-hint { font-size: 18px; color: var(--pa-text-2); min-height: 1.5em; }
+.el-talk-clock { font-size: 20px; font-weight: 700; color: var(--pa-text-2); }
+
+/* ---------- 宝宝吃饭 ---------- */
+
+.el-diet-empty { font-size: var(--el-hint); color: var(--pa-text-2); padding: 0 4px; line-height: 1.55; }
+.el-diet-day {
+  display: flex; flex-direction: column; gap: 2px; padding: 14px 18px; border-radius: 22px;
+  background: var(--tone-bg); color: var(--pa-text);
+}
+.el-diet-day b { font-size: 18px; color: var(--tone-fg); font-weight: 800; }
+.el-diet-meal {
+  display: flex; flex-direction: column; gap: 10px; padding: 16px 16px 14px; border-radius: 24px;
+  border: 2px solid var(--pa-line); background: var(--pa-surface);
+}
+.el-diet-meal[data-next="true"] { border-color: var(--tone-fg); background: linear-gradient(160deg, var(--tone-bg) 0%, var(--pa-surface) 70%); }
+.el-diet-meal[data-done="true"] { border-color: color-mix(in srgb, var(--tone-sage) 40%, transparent); }
+.el-diet-meal-head { display: flex; align-items: center; gap: 10px; min-height: 48px; }
+.el-diet-meal-head b { font-size: 26px; font-weight: 800; }
+.el-diet-meal-head em {
+  font-style: normal; font-size: 16px; font-weight: 700; padding: 3px 12px; border-radius: 12px;
+  background: var(--tone-fg); color: var(--pa-surface);
+}
+.el-diet-meal-head em[data-kind="done"] { background: var(--tone-sage-bg); color: var(--tone-sage); }
+.el-diet-listen {
+  margin-left: auto; width: 52px; height: 52px; border-radius: 26px; border: 0; flex-shrink: 0;
+  background: var(--pa-fill); color: var(--pa-text-2); display: grid; place-items: center;
+}
+.el-diet-line {
+  appearance: none; display: flex; gap: 12px; align-items: flex-start; width: 100%; padding: 0; border: 0;
+  background: transparent; color: var(--pa-text); text-align: left; font-size: var(--el-text); line-height: 1.5;
+}
+.el-diet-line[data-kind="eaten"] { cursor: pointer; padding-top: 10px; border-top: 1.5px dashed var(--pa-line); }
+.el-diet-line > span:last-child { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; word-break: break-word; }
+.el-diet-line small { font-size: var(--el-hint); color: var(--pa-text-2); }
+.el-diet-tag {
+  flex-shrink: 0; font-size: 17px; font-weight: 800; padding: 3px 10px; border-radius: 10px; margin-top: 3px;
+  background: var(--tone-bg); color: var(--tone-fg);
+}
+.el-diet-tag[data-kind="eaten"] { background: var(--tone-sage-bg); color: var(--tone-sage); }
+.el-diet-done {
+  appearance: none; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 60px;
+  border-radius: 20px; border: 0; background: var(--tone-sage); color: var(--pa-surface);
+  font-size: 22px; font-weight: 800; cursor: pointer; transition: transform 0.2s var(--pa-spring);
+}
+.el-diet-done:active { transform: scale(0.97); }
+.el-diet-done:disabled { opacity: 0.5; }
+
+/* 长辈模式里弹出的「改一下」：字和选项都放大（弹层挂在 body 上，用 body.elder 限定） */
+body.elder .pa-sheet .pa-sheet-title { font-size: 24px; }
+body.elder .pa-sheet .pa-label { font-size: 19px; margin-bottom: 10px; }
+body.elder .pa-sheet .pa-label small { font-size: 16px; }
+body.elder .pa-sheet .pa-chip { font-size: 19px; height: 48px; padding: 0 18px; border-radius: 24px; }
+body.elder .pa-sheet .adm-text-area-element { font-size: 20px !important; }
+body.elder .pa-sheet .pa-btn { font-size: 20px; min-height: 56px; }
+/* globals.css 给所有输入框定死了 16px !important（防 iOS 放大），长辈模式要更大 */
+.el-root .el-textarea { font-size: var(--el-text) !important; }

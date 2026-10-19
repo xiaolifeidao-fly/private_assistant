@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"common/viewer"
 	"service/bot"
 	"service/intake"
 	"service/llm"
@@ -107,7 +108,9 @@ func (s *Service) learnConversation(ctx context.Context, notes IntakePort, conve
 	if mine >= learnMinRunes {
 		occurred := last.CreatedAt
 		header := fmt.Sprintf(learnHeader, rows[0].CreatedAt.Format("2006-01-02 15:04")+" ~ "+last.CreatedAt.Format("15:04"))
-		if _, err := notes.CreateNote(ctx, conversation.FamilyKey, intake.NoteInput{
+		// 对话里学到的东西归说话的人，默认只有他自己看得到
+		owned := viewer.With(ctx, viewer.Viewer{Account: conversation.AccountKey})
+		if _, err := notes.CreateNote(owned, conversation.FamilyKey, intake.NoteInput{
 			Channel: learnerChannel, Text: header + text, OccurredAt: &occurred, CreatedBy: "chat:" + conversation.ConversationKey,
 		}); err != nil {
 			return err

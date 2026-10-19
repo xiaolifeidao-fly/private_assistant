@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"common/middleware/db"
+	"common/viewer"
 )
 
 // 原始记录表本身就是队列：worker 按 extract_status 抢占一条处理。
@@ -69,7 +70,7 @@ func (s *Service) finish(ctx context.Context, row noteRow) error {
 	if processErr == nil {
 		// 原文也切段算向量，整理漏掉的细节以后还能搜到（失败不影响，启动时会补）
 		go func(familyKey, noteKey string) {
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			ctx, cancel := context.WithTimeout(viewer.Unscoped(context.Background()), 2*time.Minute)
 			defer cancel()
 			if err := s.memory.IndexNote(ctx, familyKey, noteKey); err != nil {
 				log.Printf("原始记录 %s 原文向量化失败（稍后补算）: %v", noteKey, err)

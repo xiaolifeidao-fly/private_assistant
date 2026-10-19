@@ -3,8 +3,12 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Dialog, TextArea, Toast } from "antd-mobile";
-import { ArrowDown, ArrowUp, Camera, Check, Copy, Info, LifeBuoy, Sparkles, SquarePen, ThumbsDown, ThumbsUp, TriangleAlert, UserRoundPen } from "lucide-react";
+import type { TextAreaRef } from "antd-mobile";
+import { ArrowDown, ArrowUp, Camera, Check, Copy, Info, LifeBuoy, PanelLeft, Sparkles, SquarePen, ThumbsDown, ThumbsUp, TriangleAlert, UserRoundPen } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
+import { CommandMenu, commandsFor, filterCommands, findMention } from "@/components/command-menu";
+import type { Command } from "@/components/command-menu";
+import { ConversationDrawer } from "@/components/conversation-drawer";
 import { MemoryPopup } from "@/components/memory-popup";
 import { NoteSheet } from "@/components/note-sheet";
 import { PhotoStrip, PickedPhotos } from "@/components/photos";
@@ -45,6 +49,7 @@ const toolText: Record<string, string> = {
   list_upcoming: "查了近期提醒",
   create_reminder: "建好了提醒",
   cancel_reminder: "取消了提醒",
+  diet_overview: "看了吃饭记录",
   load_skill: "翻了做事手册",
   now: "看了看时间",
 };
@@ -111,6 +116,7 @@ function Chat() {
   const height = useViewportHeight();
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [bot, setBot] = useState<BotSummary | null>(null);
+  const [drawer, setDrawer] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -125,6 +131,10 @@ function Chat() {
   const [pendingUser, setPendingUser] = useState<{ text: string; urls: string[] } | null>(null);
   const [statusText, setStatusText] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<TextAreaRef>(null);
+  // 输入「@」弹出快捷指令（记一下、提醒我……），选中后替换掉「@xx」
+  const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
+  const [activeCommand, setActiveCommand] = useState(0);
   // 用户往上翻看历史时不要被流式输出拽回底部
   const stickRef = useRef(true);
   const canRehearse = bot?.botKey === "wife" || bot?.botKey === "mom";
@@ -380,11 +390,54 @@ function Chat() {
   const showTitle = conversation && conversation.title !== "新对话";
   const suggestions = bot ? starters[bot.botKey] ?? (bot.kind === "assistant" ? starters.assistant : []) : [];
   const empty = messages !== null && messages.length === 0 && !sending;
+  const commandList = mention ? filterCommands(commandsFor(bot?.botKey, bot?.kind), mention.query) : [];
+
+  const onDraftChange = (value: string) => {
+    setDraft(value);
+    const caret = inputRef.current?.nativeElement?.selectionStart ?? value.length;
+    const next = findMention(value, caret);
+    setMention(next);
+    if (next?.query !== mention?.query) setActiveCommand(0);
+  };
+
+  const pickCommand = (command: Command) => {
+    if (!mention) return;
+    const end = mention.start + 1 + mention.query.length;
+    const next = draft.slice(0, mention.start) + command.text + draft.slice(end);
+    const caret = mention.start + command.text.length;
+    setDraft(next);
+    setMention(null);
+    requestAnimationFrame(() => {
+      const element = inputRef.current?.nativeElement;
+      if (!element) return;
+      element.focus();
+      element.setSelectionRange(caret, caret);
+    });
+  };
+
+  const onDraftKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!commandList.length || event.nativeEvent.isComposing) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      setActiveCommand((index) => (index + step + commandList.length) % commandList.length);
+    } else if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      pickCommand(commandList[Math.min(activeCommand, commandList.length - 1)]);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setMention(null);
+    }
+  };
 
   return (
     <div className="chat-screen pa-page" style={{ height: height ? `${height}px` : "100dvh" }}>
       <NavBar
-        onBack={() => router.push("/")}
+        leading={
+          <button className="pa-icon-btn" onClick={() => setDrawer(true)} aria-label="最近的对话">
+            <PanelLeft size={22} strokeWidth={1.9} />
+          </button>
+        }
         left={bot && <Avatar tone={tone} size={32}>{bot.avatar}</Avatar>}
         title={bot?.name ?? ""}
         subtitle={showTitle ? conversation.title : bot?.kind === "persona" ? "基于记忆的模拟" : "随时问，随时记"}
@@ -480,6 +533,7 @@ function Chat() {
             预演一句我想说的话
           </button>
         )}
+        <CommandMenu items={commandList} active={activeCommand} onPick={pickCommand} onHover={setActiveCommand} />
         <PickedPhotos
           urls={photos.map((p) => p.url)}
           onRemove={(index) => setPhotos((list) => {
@@ -495,8 +549,12 @@ function Chat() {
             </label>
           )}
           <TextArea
+            ref={inputRef}
             value={draft}
-            onChange={setDraft}
+            onChange={onDraftChange}
+            onKeyDown={onDraftKeyDown}
+            // 晚一点关：手机上点菜单项时输入框会先失焦
+            onBlur={() => setTimeout(() => setMention(null), 200)}
             placeholder={
               photos.length ? (
                 bot?.kind === "persona" ? "想跟 TA 说说这张照片什么…"
@@ -507,7 +565,7 @@ function Chat() {
                 : bot?.kind === "persona" ? "想对 TA 说什么…"
                 : bot?.botKey === "recall" ? "问「…放哪了」，或拍张照记东西"
                 : bot?.botKey === "remind" ? "说要做的事和时间，比如「明晚 8 点给女儿洗澡」"
-                : "说点什么，或者「记一下：……」"
+                : "说点什么，输入 @ 选「记一下」等指令"
             }
             rows={1}
             autoSize={{ minRows: 1, maxRows: 6 }}
@@ -537,6 +595,7 @@ function Chat() {
       </div>
 
       <MemoryPopup memoryKey={memoryKey} onClose={() => setMemoryKey(null)} />
+      <ConversationDrawer open={drawer} onClose={() => setDrawer(false)} activeKey={key} showHome />
       <NoteSheet note={openNote} onClose={() => setOpenNote(null)} onChanged={() => {}} onMemory={(key) => { setOpenNote(null); setMemoryKey(key); }} />
 
       <style jsx global>{`

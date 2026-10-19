@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"common/viewer"
 	"service/bot"
 	"service/family"
 	"service/llm"
@@ -122,6 +123,7 @@ func toolSpecs() map[string]toolSpec {
 					"attrs":          map[string]any{"type": "object", "description": "类型相关的结构化字段，如 commitment 的 {\"promisedTo\":\"wife\",\"dueAt\":\"2026-10-20\",\"status\":\"open\"}"},
 					"confidence":     map[string]any{"type": "number", "description": "0-1，我明确说了的=1，你推断的给低一些"},
 					"supersedes":     map[string]any{"type": "string", "description": "要替代的旧记忆编号 mem_xxx，可选"},
+					"visibility":     map[string]any{"type": "string", "enum": []string{"private", "family"}, "description": "谁能看到：private 只有说话的人自己（默认）；family 全家。只有明确说了「让家里人都知道」「全家都提醒」才用 family"},
 				},
 				Required: []string{"type", "title", "content"},
 			},
@@ -150,10 +152,11 @@ func toolSpecs() map[string]toolSpec {
 			definition: llm.Tool{
 				Name: bot.ToolCreateReminder, Description: "建立一条定时提醒。只在我明确要求提醒，或我确认你的提醒建议后调用。",
 				Properties: map[string]any{
-					"title":     map[string]any{"type": "string", "description": "提醒标题"},
-					"body":      map[string]any{"type": "string", "description": "要提醒的具体内容"},
-					"remind_at": map[string]any{"type": "string", "description": "提醒时间，YYYY-MM-DD HH:MM"},
-					"event_at":  map[string]any{"type": "string", "description": "事情发生时间，YYYY-MM-DD HH:MM，可选"},
+					"title":      map[string]any{"type": "string", "description": "提醒标题"},
+					"body":       map[string]any{"type": "string", "description": "要提醒的具体内容"},
+					"remind_at":  map[string]any{"type": "string", "description": "提醒时间，YYYY-MM-DD HH:MM"},
+					"event_at":   map[string]any{"type": "string", "description": "事情发生时间，YYYY-MM-DD HH:MM，可选"},
+					"visibility": map[string]any{"type": "string", "enum": []string{"private", "family"}, "description": "提醒谁：private 只提醒说话的人自己（默认）；family 全家每个人的手机都提醒。只有明确说了「提醒全家」「大家都要知道」才用 family"},
 				}, Required: []string{"title", "remind_at"},
 			},
 			run: runCreateReminder,
@@ -175,6 +178,19 @@ func toolSpecs() map[string]toolSpec {
 				Required:    []string{"name"},
 			},
 			run: runLoadSkill,
+		},
+		bot.ToolDietOverview: {
+			definition: llm.Tool{
+				Name: bot.ToolDietOverview,
+				Description: "查孩子的饮食：爸爸妈妈排的计划，和每天实际吃了什么、吃了多少（主要是奶奶记的）。" +
+					"问「她今天/这周吃了什么」「有没有按计划吃」「最近青菜吃得怎么样」时用。",
+				Properties: map[string]any{
+					"from":  map[string]any{"type": "string", "description": "从哪天开始 YYYY-MM-DD；不填就是往前数 days 天到今天"},
+					"days":  map[string]any{"type": "integer", "minimum": 1, "maximum": 31, "description": "查几天，默认 7"},
+					"child": map[string]any{"type": "string", "description": "哪个孩子的人物 key，默认 daughter"},
+				},
+			},
+			run: runDietOverview,
 		},
 		bot.ToolNow: {
 			definition: llm.Tool{Name: bot.ToolNow, Description: "获取当前日期、时间和星期。", Properties: map[string]any{}},
@@ -268,14 +284,16 @@ func runGetPerson(ctx context.Context, s *Service, scope toolScope, input json.R
 	if place, ok := dir.places[person.HomePlaceKey]; ok {
 		builder.WriteString("住在：" + place.Name + "\n")
 	}
-	if person.Profile != "" {
+	// 概况、人设卡、关系是我的私有整理，老婆、奶奶的账号只给基本信息
+	private := !viewer.IsSystem(ctx)
+	if person.Profile != "" && !private {
 		builder.WriteString("概况：" + person.Profile + "\n")
 	}
-	if card, ok, cardErr := s.personas.Active(ctx, scope.familyKey, person.PersonKey); cardErr == nil && ok {
+	if card, ok, cardErr := s.personas.Active(ctx, scope.familyKey, person.PersonKey); cardErr == nil && ok && !private {
 		fmt.Fprintf(&builder, "人设卡（v%d，%s 更新）：\n%s\n", card.Version, card.CreatedAt.Format("2006-01-02"), card.Content)
 	}
 	relations, _ := s.family.ListRelations(ctx, scope.familyKey, person.PersonKey)
-	if len(relations) > 0 {
+	if len(relations) > 0 && !private {
 		builder.WriteString("关系：\n")
 		for _, relation := range relations {
 			builder.WriteString("- " + formatRelation(dir, relation) + "\n")
@@ -413,6 +431,7 @@ func runRemember(ctx context.Context, s *Service, scope toolScope, input json.Ra
 		Attrs         json.RawMessage `json:"attrs"`
 		Confidence    float64         `json:"confidence"`
 		Supersedes    string          `json:"supersedes"`
+		Visibility    string          `json:"visibility"`
 	}
 	if err := decodeInput(input, &args); err != nil {
 		return "", err
@@ -482,10 +501,13 @@ func runRemember(ctx context.Context, s *Service, scope toolScope, input json.Ra
 		Type: args.Type, SubjectPerson: subject, Persons: persons, PlaceKey: args.Place,
 		Title: args.Title, Content: args.Content, Attrs: attrs, Importance: args.Importance,
 		Confidence: confidence, Status: status, OccurredAt: occurred, CreatedBy: "chat",
-		SupersedesKey: args.Supersedes,
+		SupersedesKey: args.Supersedes, Visibility: args.Visibility,
 	})
 	if err != nil {
 		return "", err
+	}
+	if created.Visibility == viewer.Family {
+		return fmt.Sprintf("已记下 %s（全家可见）%s。", created.MemoryKey, map[bool]string{true: "，状态：待确认", false: ""}[status == memory.StatusPending]), nil
 	}
 	if status == memory.StatusPending {
 		return fmt.Sprintf("已记下 %s，状态：待确认（在 App「今天」页确认后生效）。", created.MemoryKey), nil
@@ -555,7 +577,11 @@ func runListUpcoming(ctx context.Context, s *Service, scope toolScope, input jso
 	}
 	lines := make([]string, 0, len(items))
 	for _, item := range items {
-		lines = append(lines, fmt.Sprintf("- %s [%s] %s：%s", item.ReminderKey, item.RemindAt.In(time.Local).Format("2006-01-02 15:04"), item.Title, item.Body))
+		who := ""
+		if item.Visibility == viewer.Family {
+			who = "（全家）"
+		}
+		lines = append(lines, fmt.Sprintf("- %s [%s] %s%s：%s", item.ReminderKey, item.RemindAt.In(time.Local).Format("2006-01-02 15:04"), item.Title, who, item.Body))
 	}
 	return strings.Join(lines, "\n"), nil
 }
@@ -565,10 +591,11 @@ func runCreateReminder(ctx context.Context, s *Service, scope toolScope, input j
 		return "", errors.New("只有助理可以建提醒")
 	}
 	var args struct {
-		Title    string `json:"title"`
-		Body     string `json:"body"`
-		RemindAt string `json:"remind_at"`
-		EventAt  string `json:"event_at"`
+		Title      string `json:"title"`
+		Body       string `json:"body"`
+		RemindAt   string `json:"remind_at"`
+		EventAt    string `json:"event_at"`
+		Visibility string `json:"visibility"`
 	}
 	if err := decodeInput(input, &args); err != nil {
 		return "", err
@@ -601,12 +628,16 @@ func runCreateReminder(ctx context.Context, s *Service, scope toolScope, input j
 		targetURL = "/chat/" + scope.conversationKey
 	}
 	created, err := s.reminders.CreateManual(ctx, scope.familyKey, reminder.ManualInput{
-		Title: args.Title, Body: args.Body, RemindAt: *remindAt, EventAt: eventAt, TargetURL: targetURL,
+		Title: args.Title, Body: args.Body, RemindAt: *remindAt, EventAt: eventAt, TargetURL: targetURL, Visibility: args.Visibility,
 	})
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("已建立提醒 %s，将在 %s 提醒。", created.ReminderKey, created.RemindAt.Format("2006-01-02 15:04")), nil
+	who := "只提醒你自己"
+	if created.Visibility == viewer.Family {
+		who = "全家都会收到"
+	}
+	return fmt.Sprintf("已建立提醒 %s，将在 %s 提醒（%s）。", created.ReminderKey, created.RemindAt.Format("2006-01-02 15:04"), who), nil
 }
 
 func runCancelReminder(ctx context.Context, s *Service, scope toolScope, input json.RawMessage) (string, error) {
@@ -641,4 +672,25 @@ func runLoadSkill(ctx context.Context, s *Service, scope toolScope, input json.R
 		return "", fmt.Errorf("没有叫 %s 的手册，看系统提示词里「做事手册」的目录", args.Name)
 	}
 	return s.skills.Render(ctx, scope.familyKey, entry), nil
+}
+
+func runDietOverview(ctx context.Context, s *Service, scope toolScope, input json.RawMessage) (string, error) {
+	if s.diet == nil {
+		return "", errors.New("饮食记录没有开")
+	}
+	var args struct {
+		From  string `json:"from"`
+		Days  int    `json:"days"`
+		Child string `json:"child"`
+	}
+	if err := decodeInput(input, &args); err != nil {
+		return "", err
+	}
+	if args.Days <= 0 || args.Days > 31 {
+		args.Days = 7
+	}
+	if strings.TrimSpace(args.From) == "" {
+		args.From = time.Now().AddDate(0, 0, 1-args.Days).Format("2006-01-02")
+	}
+	return s.diet.Summary(ctx, scope.familyKey, args.Child, args.From, args.Days)
 }

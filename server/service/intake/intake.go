@@ -15,6 +15,7 @@ import (
 
 	"common/keys"
 	"common/middleware/db"
+	"common/viewer"
 	"service/family"
 	"service/llm"
 	"service/memory"
@@ -96,6 +97,8 @@ type Note struct {
 	Result          *Result      `json:"result"`
 	ExtractError    string       `json:"extractError"`
 	CreatedBy       string       `json:"createdBy"`
+	OwnerAccount    string       `json:"ownerAccount"`
+	Visibility      string       `json:"visibility"`
 	CreatedAt       time.Time    `json:"createdAt"`
 }
 
@@ -111,6 +114,8 @@ type NoteInput struct {
 	OccurredAt   *time.Time
 	Images       []Image
 	CreatedBy    string
+	// Visibility 这条记录和从它整理出的记忆谁能看到：private（默认）/ family
+	Visibility string
 	// Inline 表示调用方马上会用 ProcessNow 当场整理，不用唤醒后台 worker。
 	Inline bool
 }
@@ -156,6 +161,7 @@ func (s *Service) CreateNote(ctx context.Context, familyKey string, input NoteIn
 		NoteKey: noteKey, FamilyKey: familyKey, Channel: channel, RawText: text,
 		Attachments: db.MustJSON(attachments), AboutPersons: db.StringList(input.AboutPersons),
 		OccurredAt: input.OccurredAt, ExtractStatus: StatusQueued, CreatedBy: defaultString(input.CreatedBy, "manual"),
+		OwnerAccount: viewer.Owner(ctx), Visibility: viewer.Resolve(ctx, input.Visibility),
 		CreatedAt: time.Now(),
 	}
 	if len(attachments) == 0 {

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"common/viewer"
+
 	"gorm.io/gorm"
 )
 
@@ -83,7 +85,11 @@ func (s *Service) Search(ctx context.Context, familyKey string, query SearchQuer
 			if err := s.index.ensure(ctx, s.vectors, familyKey, model, false); err == nil {
 				vector, err := s.queryVector(ctx, text)
 				if err == nil && len(vector) > 0 {
-					for _, hit := range s.index.search(familyKey, vector, 60) {
+					allowed, err := s.visibleKeys(ctx, familyKey, query.IncludeHistory)
+					if err != nil {
+						return nil, err
+					}
+					for _, hit := range s.index.search(familyKey, vector, 60, allowed) {
 						vectorScores[hit.MemoryKey] = hit.Score
 						candidates[hit.MemoryKey] = true
 					}
@@ -100,11 +106,13 @@ func (s *Service) Search(ctx context.Context, familyKey string, query SearchQuer
 			Score     float64
 		}
 		var hits []textHit
+		clause, clauseArgs := viewer.Clause(ctx, "")
+		args := append([]any{text, familyKey}, clauseArgs...)
 		err := s.db.WithContext(ctx).Raw(
 			`SELECT memory_key, MATCH(title, content) AGAINST (? IN NATURAL LANGUAGE MODE) AS score
 			   FROM pa_memory
-			  WHERE family_key = ? AND MATCH(title, content) AGAINST (? IN NATURAL LANGUAGE MODE)
-			  ORDER BY score DESC LIMIT 60`, text, familyKey, text).Scan(&hits).Error
+			  WHERE family_key = ? AND `+clause+` AND MATCH(title, content) AGAINST (? IN NATURAL LANGUAGE MODE)
+			  ORDER BY score DESC LIMIT 60`, append(args, text)...).Scan(&hits).Error
 		if err != nil {
 			log.Printf("全文检索失败: %v", err)
 		}
@@ -122,8 +130,10 @@ func (s *Service) Search(ctx context.Context, familyKey string, query SearchQuer
 
 	if len(query.Persons) > 0 {
 		var recent []string
+		clause, clauseArgs := viewer.Clause(ctx, "m.")
 		s.db.WithContext(ctx).Model(&linkRow{}).
 			Joins("JOIN pa_memory m ON m.memory_key = pa_memory_link.memory_key").
+			Where(clause, clauseArgs...).
 			Where("m.family_key = ? AND m.status = ? AND pa_memory_link.target_type = 'person' AND pa_memory_link.target_key IN ?", familyKey, StatusActive, query.Persons).
 			Order("m.importance DESC, COALESCE(m.occurred_at, m.created_at) DESC").Limit(40).
 			Pluck("pa_memory_link.memory_key", &recent)
@@ -292,4 +302,27 @@ func (s *Service) Core(ctx context.Context, familyKey string, filter CoreFilter)
 		}
 	}
 	return s.toDTOs(ctx, rows)
+}
+
+// visibleKeys 是当前账号看得到的记忆编号，向量召回时先按它过滤，
+// 免得 Top K 被别人的私有记忆占满（奶奶的记忆少，不先过滤可能一条也召回不到）。
+// 不过滤（Unscoped）时返回 nil。
+func (s *Service) visibleKeys(ctx context.Context, familyKey string, includeHistory bool) (func(string) bool, error) {
+	if _, unscoped, _ := viewer.Accounts(ctx); unscoped {
+		return nil, nil
+	}
+	statuses := []string{StatusActive}
+	if includeHistory {
+		statuses = append(statuses, StatusSuperseded)
+	}
+	var keys []string
+	if err := s.db.WithContext(ctx).Model(&memoryRow{}).Where("family_key = ? AND status IN ?", familyKey, statuses).
+		Pluck("memory_key", &keys).Error; err != nil {
+		return nil, err
+	}
+	allowed := make(map[string]bool, len(keys))
+	for _, key := range keys {
+		allowed[key] = true
+	}
+	return func(key string) bool { return allowed[key] }, nil
 }

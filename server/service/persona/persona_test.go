@@ -16,12 +16,16 @@ func TestSystemPromptSectionsForChild(t *testing.T) {
 	if !strings.Contains(systemPrompt(family.Person{RoleLabel: "老婆"}), "雷区") {
 		t.Fatal("成人应包含雷区小节")
 	}
+	if strings.Contains(systemPrompt(family.Person{RoleLabel: "老婆"}), "近期状态") {
+		t.Fatal("近期状态留在记忆里，不进人设卡")
+	}
 }
 
 func TestCardSchemaIsStrict(t *testing.T) {
-	schema := cardSchema()
-	if schema["additionalProperties"] != false || len(schema["required"].([]string)) != len(schema["properties"].(map[string]any)) {
-		t.Fatal("人设卡 schema 不满足结构化输出要求")
+	for _, schema := range []map[string]any{cardSchema(), gateSchema()} {
+		if schema["additionalProperties"] != false || len(schema["required"].([]string)) != len(schema["properties"].(map[string]any)) {
+			t.Fatal("人设卡 schema 不满足结构化输出要求")
+		}
 	}
 }
 

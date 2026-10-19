@@ -28,7 +28,7 @@ func (s *Service) SimilarPairs(ctx context.Context, familyKey string, threshold 
 		return nil, err
 	}
 	var rows []memoryRow
-	if err := s.db.WithContext(ctx).Select("memory_key", "type", "subject_person").
+	if err := s.db.WithContext(ctx).Select("memory_key", "type", "subject_person", "owner_account").
 		Where("family_key = ? AND status = ? AND type <> 'insight'", familyKey, StatusActive).Find(&rows).Error; err != nil {
 		return nil, err
 	}
@@ -38,7 +38,8 @@ func (s *Service) SimilarPairs(ctx context.Context, familyKey string, threshold 
 		if row.SubjectPerson != nil {
 			subject = *row.SubjectPerson
 		}
-		groups[row.Type+"|"+subject] = append(groups[row.Type+"|"+subject], row.MemoryKey)
+		// 不同人名下的记忆不算重复，免得合并时把私有的并进别人的
+		groups[row.Type+"|"+subject+"|"+row.OwnerAccount] = append(groups[row.Type+"|"+subject], row.MemoryKey)
 	}
 
 	s.index.mu.RLock()

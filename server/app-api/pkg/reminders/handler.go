@@ -19,6 +19,7 @@ func (h *Handler) RegisterHandler(group *gin.RouterGroup) {
 	group.GET("/reminders", h.list)
 	group.POST("/reminders", h.create)
 	group.POST("/reminders/:key/dismiss", h.dismiss)
+	group.PUT("/reminders/:key/visibility", h.setVisibility)
 	group.GET("/trips", h.trips)
 	group.POST("/trips", h.createTrip)
 	group.GET("/trips/:key", h.trip)
@@ -48,6 +49,18 @@ func (h *Handler) create(c *gin.Context) {
 
 func (h *Handler) dismiss(c *gin.Context) {
 	httpx.JSON(c, gin.H{"ok": true}, h.reminders.Dismiss(c.Request.Context(), principal(c).FamilyKey, c.Param("key")))
+}
+
+// setVisibility 改提醒谁：private 只提醒自己 / family 全家都提醒。只有设提醒的人能改。
+func (h *Handler) setVisibility(c *gin.Context) {
+	var body struct {
+		Visibility string `json:"visibility"`
+	}
+	if !httpx.Bind(c, &body) {
+		return
+	}
+	result, err := h.reminders.SetVisibility(c.Request.Context(), principal(c).FamilyKey, c.Param("key"), body.Visibility)
+	httpx.JSON(c, result, err)
 }
 
 func (h *Handler) trips(c *gin.Context) {

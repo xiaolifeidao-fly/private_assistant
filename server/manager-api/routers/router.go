@@ -5,6 +5,7 @@ import (
 
 	"common/middleware/httpx"
 	"common/middleware/routers"
+	"common/viewer"
 	"manager-api/pkg/accounts"
 	"manager-api/pkg/auth"
 	"manager-api/pkg/bots"
@@ -35,7 +36,11 @@ func New(services *wire.Services) http.Handler {
 	api := engine.Group(httpx.ContextPath() + "/api")
 	auth.New(services.Identity, identity.RealmManager).RegisterHandler(api)
 
-	protected := api.Group("", httpx.RequireUser())
+	// 管理端是我在维护：按系统账号（我自己）的身份看记忆、原始记录、提醒，看不到奶奶的私有记录（common/viewer）
+	protected := api.Group("", httpx.RequireUser(), func(c *gin.Context) {
+		c.Request = c.Request.WithContext(viewer.AsSystem(c.Request.Context()))
+		c.Next()
+	})
 	for _, handler := range []routers.Handler{
 		accounts.New(services.Identity),
 		family.New(services.Family),

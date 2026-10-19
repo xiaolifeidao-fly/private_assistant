@@ -27,6 +27,8 @@ type memoryRow struct {
 	SupersedesKey *string
 	SourceNoteKey *string
 	CreatedBy     string
+	OwnerAccount  string
+	Visibility    string
 	UseCount      int
 	LastUsedAt    *time.Time
 	CreatedAt     time.Time
@@ -41,7 +43,7 @@ func (row memoryRow) toDTO() Memory {
 		SubjectPerson: deref(row.SubjectPerson), PlaceKey: deref(row.PlaceKey), Title: row.Title, Content: row.Content,
 		Attrs: json.RawMessage(row.Attrs), Importance: row.Importance, Confidence: row.Confidence, Status: row.Status,
 		OccurredAt: row.OccurredAt, ValidFrom: row.ValidFrom, ValidTo: row.ValidTo, SupersedesKey: deref(row.SupersedesKey),
-		SourceNoteKey: deref(row.SourceNoteKey), CreatedBy: row.CreatedBy, UseCount: row.UseCount, LastUsedAt: row.LastUsedAt,
+		SourceNoteKey: deref(row.SourceNoteKey), CreatedBy: row.CreatedBy, OwnerAccount: row.OwnerAccount, Visibility: row.Visibility, UseCount: row.UseCount, LastUsedAt: row.LastUsedAt,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 }

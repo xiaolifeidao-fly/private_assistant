@@ -64,6 +64,8 @@ var resetTables = []string{
 }
 
 func resetAndSeed(ctx context.Context, database *gorm.DB, services *wire.Services, options wire.Options) (map[string]string, error) {
+	// 带上 ctx（评测是 Unscoped）：不声明身份的语句会被可见范围插件拒绝
+	database = database.WithContext(ctx)
 	for _, table := range resetTables {
 		if err := database.Exec("DELETE FROM " + table).Error; err != nil {
 			return nil, fmt.Errorf("清空 %s: %w", table, err)

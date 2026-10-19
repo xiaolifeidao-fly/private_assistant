@@ -115,6 +115,7 @@ type Principal struct {
 	Realm       string `json:"realm"` // manager / app
 	Role        string `json:"role"`
 	FamilyKey   string `json:"familyKey"`
+	PersonKey   string `json:"personKey"` // App 账号对应家里哪个人（me / mom / wife……）
 }
 
 // Authenticator 由 identity 领域实现，进程启动时注入。

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"common/middleware/db"
+	"common/viewer"
 	"service/bot"
 	"service/family"
 	"service/memory"
@@ -139,7 +140,9 @@ func (s *Service) buildSystem(ctx context.Context, familyKey string, item bot.Bo
 	if err != nil {
 		return "", nil, err
 	}
-	if len(relations) > 0 {
+	// 关系要点、人设卡是从我的记录里整理出来的，老婆、奶奶的账号不放进提示词
+	private := !viewer.IsSystem(ctx)
+	if len(relations) > 0 && !private {
 		builder.WriteString("\n## 关系要点\n")
 		for _, relation := range relations {
 			builder.WriteString("- " + formatRelation(dir, relation) + "\n")
@@ -148,6 +151,9 @@ func (s *Service) buildSystem(ctx context.Context, familyKey string, item bot.Bo
 
 	// 人设卡：分身只看她自己的；助理看所有核心成员的
 	for _, personKey := range cardPersons(dir, item) {
+		if private {
+			break
+		}
 		person := dir.persons[personKey]
 		versions[personKey] = 0
 		card, ok, err := s.personas.Active(ctx, familyKey, person.PersonKey)
@@ -201,6 +207,9 @@ func cardPersons(dir directory, item bot.Bot) []string {
 // 已知版本存在 pa_conversation.persona_versions：它不进提示词，提示过一次就更新，避免每轮重复。
 // 分身拿到新卡全文（她要靠它说话）；助理只拿变化说明，需要全文自己用 get_person 查。
 func (s *Service) personaUpdates(ctx context.Context, familyKey string, item bot.Bot, conversation *conversationRow) (string, []personaUpdate) {
+	if !viewer.IsSystem(ctx) {
+		return "", nil
+	}
 	known := map[string]int{}
 	if len(conversation.PersonaVersions) > 0 {
 		_ = json.Unmarshal(conversation.PersonaVersions, &known)

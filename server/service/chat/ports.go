@@ -70,3 +70,8 @@ type SettingPort interface {
 	Budget(ctx context.Context) setting.Budget
 	Learning(ctx context.Context) setting.Learning
 }
+
+// DietPort 查孩子的饮食计划和实际吃了什么（diet_overview 工具）。
+type DietPort interface {
+	Summary(ctx context.Context, familyKey, childKey, from string, days int) (string, error)
+}

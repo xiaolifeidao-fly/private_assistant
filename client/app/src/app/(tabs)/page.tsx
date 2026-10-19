@@ -2,14 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Dialog, PullToRefresh, SwipeAction, Toast } from "antd-mobile";
-import { AlarmClock, ArrowRight, Luggage, MessageSquareQuote, MessagesSquare, NotebookPen, Search, type LucideIcon } from "lucide-react";
+import { Dialog, PullToRefresh, Toast } from "antd-mobile";
+import { AlarmClock, ArrowRight, LogOut, Luggage, MessageSquareQuote, NotebookPen, PanelLeft, Search, Utensils, type LucideIcon } from "lucide-react";
 import { api } from "@/lib/api";
+import { logout, useMe } from "@/lib/role";
 import { useOnResume } from "@/lib/events";
 import { botTone, type Tone } from "@/lib/tone";
-import { greeting, shortTime, todayLabel } from "@/lib/time";
+import { greeting, todayLabel } from "@/lib/time";
 import type { Conversation, Paged } from "@/lib/types";
-import { Avatar, Card, Empty, PageHeader, Row, Section, Skeleton, Tip } from "@/components/ui";
+import { ConversationDrawer } from "@/components/conversation-drawer";
+import { Avatar, PageHeader, Section, Skeleton, Tip } from "@/components/ui";
 
 interface BotSummary {
   botKey: string;
@@ -20,19 +22,23 @@ interface BotSummary {
 }
 
 /** 首页的快捷入口：点一下就开一段对话，并把开头替你写好，改一改就能发。 */
-const shortcuts: { key: string; icon: LucideIcon; label: string; hint: string; tone: Tone; bot: string; prompt: string }[] = [
+const shortcuts: { key: string; icon: LucideIcon; label: string; hint: string; tone: Tone; bot: string; prompt: string; href?: string }[] = [
   { key: "note", icon: NotebookPen, label: "记一件事", hint: "原话、承诺、小事", tone: "clay", bot: "assistant", prompt: "记一下：" },
   { key: "find", icon: Search, label: "找东西", hint: "证件钥匙放哪了", tone: "sage", bot: "recall", prompt: "" },
   { key: "say", icon: MessageSquareQuote, label: "这话怎么说", hint: "想清楚再开口", tone: "rose", bot: "assistant", prompt: "这件事我想好好说，帮我想想怎么开口：" },
   { key: "trip", icon: Luggage, label: "回老家", hint: "见谁、注意什么", tone: "sky", bot: "assistant", prompt: "下次回老家要注意什么？" },
   { key: "remind", icon: AlarmClock, label: "提醒", hint: "说一句，到点推送到手机", tone: "plum", bot: "remind", prompt: "提醒我：" },
+  // 不是对话：打开饮食页，计划和实际对照着看，两边都能说一句 / 拍张照
+  { key: "diet", icon: Utensils, label: "宝宝吃饭", hint: "排计划、看实际吃了啥", tone: "amber", bot: "", prompt: "", href: "/diet" },
 ];
 
 export default function ChatsPage() {
   const router = useRouter();
+  const { role } = useMe();
   const [bots, setBots] = useState<BotSummary[] | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [starting, setStarting] = useState("");
+  const [drawer, setDrawer] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -73,17 +79,6 @@ export default function ChatsPage() {
     }
   };
 
-  const remove = async (conversation: Conversation) => {
-    const confirmed = await Dialog.confirm({ title: "删除这段对话？", content: "从这段对话里记下的记忆不受影响。", confirmText: "删除", cancelText: "取消" });
-    if (!confirmed) return;
-    try {
-      await api.del(`/conversations/${conversation.conversationKey}`);
-      setConversations((list) => list.filter((c) => c.conversationKey !== conversation.conversationKey));
-    } catch (error) {
-      Toast.show({ content: (error as Error).message });
-    }
-  };
-
   const assistant = bots?.find((b) => b.botKey === "assistant") ?? bots?.find((b) => b.kind === "assistant");
   // 其它助理类机器人（万能通……）排在主助理下面，一行一张
   const helpers = bots?.filter((b) => b.kind === "assistant" && b !== assistant) ?? [];
@@ -91,10 +86,34 @@ export default function ChatsPage() {
   const botOf = (key: string) => bots?.find((b) => b.botKey === key);
   // 快捷入口指向的机器人没开时，交给私人助理
   const shortcutBot = (key: string) => (botOf(key) ? key : assistant?.botKey ?? "");
+  // 老婆的账号没有私人助理：只留指向她能用的机器人的入口（「记一件事」交给万能通）
+  const visibleShortcuts = role === "self" ? shortcuts : shortcuts.filter((item) => item.key === "note" || item.href || botOf(item.bot));
+
+  const signOut = async () => {
+    const confirmed = await Dialog.confirm({ title: "退出登录？", content: "退出后需要重新输入账号密码。", confirmText: "退出", cancelText: "取消" });
+    if (!confirmed) return;
+    await logout();
+    router.replace("/login");
+  };
 
   return (
     <PullToRefresh onRefresh={load}>
-      <PageHeader eyebrow={`${greeting()} · ${todayLabel()}`} title="对话" />
+      <PageHeader
+        eyebrow={`${greeting()} · ${todayLabel()}`}
+        title="对话"
+        action={
+          role !== "self" ? (
+            <button className="pa-icon-btn" onClick={signOut} aria-label="退出登录">
+              <LogOut size={20} strokeWidth={1.9} />
+            </button>
+          ) : undefined
+        }
+        leading={
+          <button className="pa-icon-btn" style={{ marginLeft: -10 }} onClick={() => setDrawer(true)} aria-label="最近的对话">
+            <PanelLeft size={22} strokeWidth={1.9} />
+          </button>
+        }
+      />
 
       {!bots ? (
         <div style={{ marginTop: 8 }}><Skeleton rows={3} /></div>
@@ -120,7 +139,7 @@ export default function ChatsPage() {
 
           {assistant && (
             <div className="chat-shortcuts pa-stagger">
-              {shortcuts.map((item, index) => {
+              {visibleShortcuts.map((item, index) => {
                 const Icon = item.icon;
                 const bot = shortcutBot(item.bot);
                 return (
@@ -129,7 +148,7 @@ export default function ChatsPage() {
                     className="chat-shortcut"
                     data-tone={item.tone}
                     style={{ "--i": index } as React.CSSProperties}
-                    onClick={() => bot && start(bot, item.prompt, item.key)}
+                    onClick={() => (item.href ? router.push(item.href) : bot && start(bot, item.prompt, item.key))}
                   >
                     <span className="chat-shortcut-icon">
                       {starting === item.key ? <span className="pa-btn-spin" /> : <Icon size={18} strokeWidth={2} />}
@@ -179,39 +198,14 @@ export default function ChatsPage() {
               </div>
             </Section>
           )}
-
-          <Section title="最近的对话" count={conversations.length}>
-            {conversations.length === 0 ? (
-              <Card>
-                <Empty icon={<MessagesSquare size={22} />} title="还没有对话" hint="点上面任意一个入口开始聊" compact />
-              </Card>
-            ) : (
-              <Card>
-                {conversations.map((conversation) => {
-                  const bot = botOf(conversation.botKey);
-                  return (
-                    <SwipeAction
-                      key={conversation.conversationKey}
-                      rightActions={[{ key: "delete", text: "删除", color: "danger", onClick: () => remove(conversation) }]}
-                    >
-                      <Row
-                        inset={68}
-                        leading={<Avatar tone={botTone(conversation.botKey)} size={40}>{bot?.avatar ?? "💬"}</Avatar>}
-                        title={conversation.title}
-                        clampTitle
-                        subtitle={bot?.name}
-                        trailing={shortTime(conversation.lastMessageAt ?? conversation.createdAt)}
-                        onClick={() => router.push(`/chat/${conversation.conversationKey}`)}
-                      />
-                    </SwipeAction>
-                  );
-                })}
-              </Card>
-            )}
-            {conversations.length > 0 && <div className="pa-hint" style={{ marginTop: 10, textAlign: "center" }}>向左滑可以删除</div>}
-          </Section>
         </>
       )}
+
+      <ConversationDrawer
+        open={drawer}
+        onClose={() => setDrawer(false)}
+        onDeleted={(key) => setConversations((list) => list.filter((c) => c.conversationKey !== key))}
+      />
 
       <style jsx>{`
         .chat-hero {

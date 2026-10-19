@@ -8,25 +8,27 @@ import (
 )
 
 type reminderRow struct {
-	ID          int64
-	ReminderKey string
-	FamilyKey   string
-	Kind        string
-	Title       string
-	Body        string
-	EventAt     *time.Time
-	RemindAt    time.Time
-	Status      string
-	SourceType  string
-	SourceKey   string
-	DedupeKey   string
-	TargetURL   string
-	Payload     db.JSON
-	Attempts    int
-	LastError   string
-	SentAt      *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID           int64
+	ReminderKey  string
+	FamilyKey    string
+	Kind         string
+	Title        string
+	Body         string
+	EventAt      *time.Time
+	RemindAt     time.Time
+	Status       string
+	SourceType   string
+	SourceKey    string
+	OwnerAccount string
+	Visibility   string
+	DedupeKey    string
+	TargetURL    string
+	Payload      db.JSON
+	Attempts     int
+	LastError    string
+	SentAt       *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 func (reminderRow) TableName() string { return "pa_reminder" }
@@ -35,7 +37,7 @@ func (row reminderRow) toDTO() Reminder {
 	return Reminder{
 		ReminderKey: row.ReminderKey, Kind: row.Kind, Title: row.Title, Body: row.Body,
 		EventAt: row.EventAt, RemindAt: row.RemindAt, Status: row.Status,
-		SourceType: row.SourceType, SourceKey: row.SourceKey, TargetURL: row.TargetURL,
+		SourceType: row.SourceType, SourceKey: row.SourceKey, OwnerAccount: row.OwnerAccount, Visibility: row.Visibility, TargetURL: row.TargetURL,
 		Payload: json.RawMessage(row.Payload), Attempts: row.Attempts, LastError: row.LastError,
 		SentAt: row.SentAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}

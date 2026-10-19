@@ -37,10 +37,11 @@ type Service struct {
 	skills    SkillPort
 	settings  SettingPort
 	notes     NotePort
+	diet      DietPort
 }
 
-func New(database *gorm.DB, familyService FamilyPort, memoryService MemoryPort, botService BotPort, gateway LLMPort, personaService PersonaPort, reminderService ReminderPort, skillService SkillPort, settingService SettingPort, noteService NotePort) *Service {
-	return &Service{db: database, family: familyService, memory: memoryService, bots: botService, llm: gateway, personas: personaService, reminders: reminderService, skills: skillService, settings: settingService, notes: noteService}
+func New(database *gorm.DB, familyService FamilyPort, memoryService MemoryPort, botService BotPort, gateway LLMPort, personaService PersonaPort, reminderService ReminderPort, skillService SkillPort, settingService SettingPort, noteService NotePort, dietService DietPort) *Service {
+	return &Service{db: database, family: familyService, memory: memoryService, bots: botService, llm: gateway, personas: personaService, reminders: reminderService, skills: skillService, settings: settingService, notes: noteService, diet: dietService}
 }
 
 type Conversation struct {

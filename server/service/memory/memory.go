@@ -16,6 +16,7 @@ import (
 
 	"common/keys"
 	"common/middleware/db"
+	"common/viewer"
 
 	"gorm.io/gorm"
 )
@@ -127,6 +128,8 @@ type Memory struct {
 	SupersedesKey string          `json:"supersedesKey"`
 	SourceNoteKey string          `json:"sourceNoteKey"`
 	CreatedBy     string          `json:"createdBy"`
+	OwnerAccount  string          `json:"ownerAccount"`
+	Visibility    string          `json:"visibility"` // private 仅自己 / family 全家（common/viewer）
 	UseCount      int             `json:"useCount"`
 	LastUsedAt    *time.Time      `json:"lastUsedAt"`
 	CreatedAt     time.Time       `json:"createdAt"`
@@ -152,10 +155,14 @@ type Input struct {
 	// SupersedesKey 非空表示「这条要替代那条旧记忆」。只在确认（pending→active）时才真正
 	// 把旧记忆标成 superseded —— 「她变了」这种判断必须由我拍板。
 	SupersedesKey string `json:"supersedesKey"`
+	// Visibility 新建时的可见范围，空表示私有；改已有记忆的可见范围用 SetVisibility。
+	Visibility string `json:"visibility"`
+	// OwnerAccount 新建时的归属账号，空表示当前登录账号（后台任务里是系统账号）。
+	OwnerAccount string `json:"-"`
 }
 
 func (s *Service) Create(ctx context.Context, familyKey string, input Input) (Memory, error) {
-	row, err := s.buildRow(familyKey, input)
+	row, err := s.buildRow(ctx, familyKey, input)
 	if err != nil {
 		return Memory{}, err
 	}
@@ -186,7 +193,7 @@ func (s *Service) Update(ctx context.Context, familyKey, memoryKey string, input
 	if input.CreatedBy == "" {
 		input.CreatedBy = existing.CreatedBy
 	}
-	row, err := s.buildRow(familyKey, input)
+	row, err := s.buildRow(ctx, familyKey, input)
 	if err != nil {
 		return Memory{}, err
 	}
@@ -252,10 +259,12 @@ func (s *Service) Supersede(ctx context.Context, familyKey, oldKey string, input
 	if old.Status == StatusSuperseded {
 		return Memory{}, errors.New("这条记忆已经被替代过了")
 	}
-	row, err := s.buildRow(familyKey, input)
+	row, err := s.buildRow(ctx, familyKey, input)
 	if err != nil {
 		return Memory{}, err
 	}
+	// 新版本和旧的归属、可见范围一致
+	row.OwnerAccount, row.Visibility = old.OwnerAccount, old.Visibility
 	now := time.Now()
 	row.MemoryKey = keys.New("mem")
 	row.SupersedesKey = &old.MemoryKey
@@ -329,8 +338,10 @@ type ListFilter struct {
 	Statuses  []string
 	Keyword   string
 	Source    string // 来自哪条原始记录
-	Page      int
-	Size      int
+	// ChangedAfter 非空时只返回在此之后新增或变动过的记忆（人设卡据此判断这批新记忆值不值得改卡）。
+	ChangedAfter *time.Time
+	Page         int
+	Size         int
 }
 
 func (s *Service) List(ctx context.Context, familyKey string, filter ListFilter) ([]Memory, int64, error) {
@@ -349,6 +360,9 @@ func (s *Service) List(ctx context.Context, familyKey string, filter ListFilter)
 	}
 	if filter.Source != "" {
 		query = query.Where("source_note_key = ?", filter.Source)
+	}
+	if filter.ChangedAfter != nil {
+		query = query.Where("updated_at > ?", *filter.ChangedAfter)
 	}
 	if keyword := strings.TrimSpace(filter.Keyword); keyword != "" {
 		like := "%" + keyword + "%"
@@ -404,6 +418,36 @@ func (s *Service) MarkUsed(ctx context.Context, memoryKeys []string) {
 		Updates(map[string]any{"use_count": gorm.Expr("use_count + 1"), "last_used_at": time.Now()})
 }
 
+// SetVisibility 改一条记忆的可见范围（private / family）。只有归属人自己能改；
+// 同一条替代链上的各个版本一起改，免得旧版本还露在外面。
+func (s *Service) SetVisibility(ctx context.Context, familyKey, memoryKey, visibility string) (Memory, error) {
+	if visibility != viewer.Private && visibility != viewer.Family {
+		return Memory{}, fmt.Errorf("不支持的可见范围 %s", visibility)
+	}
+	row, err := s.getRow(ctx, familyKey, memoryKey)
+	if err != nil {
+		return Memory{}, err
+	}
+	if !viewer.CanChange(ctx, row.OwnerAccount) {
+		return Memory{}, errors.New("只有记下这条的人能改谁能看到")
+	}
+	chain, err := s.History(ctx, familyKey, memoryKey)
+	if err != nil {
+		return Memory{}, err
+	}
+	memoryKeys := make([]string, 0, len(chain))
+	for _, item := range chain {
+		if item.OwnerAccount == row.OwnerAccount {
+			memoryKeys = append(memoryKeys, item.MemoryKey)
+		}
+	}
+	if err := s.db.WithContext(ctx).Model(&memoryRow{}).Where("family_key = ? AND memory_key IN ?", familyKey, memoryKeys).
+		Updates(map[string]any{"visibility": visibility, "updated_at": time.Now()}).Error; err != nil {
+		return Memory{}, err
+	}
+	return s.Get(ctx, familyKey, memoryKey)
+}
+
 // ---------------------------------------------------------------- internal
 
 func (s *Service) getRow(ctx context.Context, familyKey, memoryKey string) (memoryRow, error) {
@@ -417,7 +461,7 @@ func (s *Service) getRow(ctx context.Context, familyKey, memoryKey string) (memo
 	return row, nil
 }
 
-func (s *Service) buildRow(familyKey string, input Input) (memoryRow, error) {
+func (s *Service) buildRow(ctx context.Context, familyKey string, input Input) (memoryRow, error) {
 	if _, ok := typeInfo(input.Type); !ok {
 		return memoryRow{}, fmt.Errorf("未知的记忆类型 %s", input.Type)
 	}
@@ -464,6 +508,8 @@ func (s *Service) buildRow(familyKey string, input Input) (memoryRow, error) {
 		OccurredAt: input.OccurredAt, ValidFrom: input.ValidFrom, SourceNoteKey: nullable(input.SourceNoteKey),
 		SupersedesKey: nullable(input.SupersedesKey),
 		CreatedBy:     defaultString(input.CreatedBy, "manual"),
+		OwnerAccount:  defaultString(input.OwnerAccount, viewer.Owner(ctx)),
+		Visibility:    viewer.Resolve(ctx, input.Visibility),
 	}, nil
 }
 

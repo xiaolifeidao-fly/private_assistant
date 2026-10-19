@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"common/viewer"
 )
 
 // 原文片段：原始记录（速记、粘贴的聊天、截图说明、对话）切成小段算向量，作为记忆检索的兜底。
@@ -82,6 +84,7 @@ func (note noteSource) when() time.Time {
 }
 
 func (s *Service) loadNotes(ctx context.Context, familyKey string, noteKeys []string) ([]noteSource, error) {
+	// 可见范围由 viewer 插件自动加
 	query := s.db.WithContext(ctx).Table("pa_source_note").
 		Select("note_key", "channel", "raw_text", "occurred_at", "created_at").
 		Where("family_key = ? AND raw_text <> ''", familyKey)
@@ -105,6 +108,8 @@ func (s *Service) IndexNote(ctx context.Context, familyKey, noteKey string) erro
 }
 
 func (s *Service) indexNotes(ctx context.Context, familyKey string, noteKeys []string) (int, error) {
+	// 算向量不看是谁的：每个人的记录都要能被自己搜到，检索时再按可见范围过滤
+	ctx = viewer.Unscoped(ctx)
 	model := s.passageVectorKey(ctx)
 	if model == "" {
 		return 0, nil
@@ -168,7 +173,11 @@ func (s *Service) SearchPassages(ctx context.Context, familyKey, text string, li
 	}
 	bestByNote := map[string]vectorHit{}
 	var noteKeys []string
-	for _, hit := range s.passages.search(familyKey, vector, limit*4) {
+	allow, err := s.visibleNotes(ctx, familyKey)
+	if err != nil {
+		return nil, err
+	}
+	for _, hit := range s.passages.search(familyKey, vector, limit*4, allow) {
 		if hit.Score < minScore {
 			break
 		}
@@ -250,4 +259,24 @@ func (s *Service) queryVector(ctx context.Context, text string) ([]float32, erro
 type cachedQuery struct {
 	vector []float32
 	at     time.Time
+}
+
+// visibleNotes 返回只放行当前账号看得到的原始记录片段（键是 note_xxx#序号）；不过滤时返回 nil。
+func (s *Service) visibleNotes(ctx context.Context, familyKey string) (func(string) bool, error) {
+	if _, unscoped, _ := viewer.Accounts(ctx); unscoped {
+		return nil, nil
+	}
+	var keys []string
+	if err := s.db.WithContext(ctx).Table("pa_source_note").Where("family_key = ?", familyKey).
+		Pluck("note_key", &keys).Error; err != nil {
+		return nil, err
+	}
+	allowed := make(map[string]bool, len(keys))
+	for _, key := range keys {
+		allowed[key] = true
+	}
+	return func(key string) bool {
+		noteKey, _, _ := strings.Cut(key, "#")
+		return allowed[noteKey]
+	}, nil
 }

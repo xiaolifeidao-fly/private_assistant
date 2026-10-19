@@ -11,6 +11,7 @@ import (
 
 	"common/keys"
 	"common/middleware/db"
+	"common/viewer"
 	"service/memory"
 
 	"gorm.io/gorm"
@@ -45,22 +46,25 @@ func New(database *gorm.DB, familyService FamilyPort, memoryService MemoryPort, 
 }
 
 type Reminder struct {
-	ReminderKey string          `json:"reminderKey"`
-	Kind        string          `json:"kind"`
-	Title       string          `json:"title"`
-	Body        string          `json:"body"`
-	EventAt     *time.Time      `json:"eventAt"`
-	RemindAt    time.Time       `json:"remindAt"`
-	Status      string          `json:"status"`
-	SourceType  string          `json:"sourceType"`
-	SourceKey   string          `json:"sourceKey"`
-	TargetURL   string          `json:"targetUrl"`
-	Payload     json.RawMessage `json:"payload"`
-	Attempts    int             `json:"attempts"`
-	LastError   string          `json:"lastError"`
-	SentAt      *time.Time      `json:"sentAt"`
-	CreatedAt   time.Time       `json:"createdAt"`
-	UpdatedAt   time.Time       `json:"updatedAt"`
+	ReminderKey string     `json:"reminderKey"`
+	Kind        string     `json:"kind"`
+	Title       string     `json:"title"`
+	Body        string     `json:"body"`
+	EventAt     *time.Time `json:"eventAt"`
+	RemindAt    time.Time  `json:"remindAt"`
+	Status      string     `json:"status"`
+	SourceType  string     `json:"sourceType"`
+	SourceKey   string     `json:"sourceKey"`
+	// OwnerAccount / Visibility：谁的提醒、谁能看到；推送只发给能看到的账号（common/viewer）
+	OwnerAccount string          `json:"ownerAccount"`
+	Visibility   string          `json:"visibility"`
+	TargetURL    string          `json:"targetUrl"`
+	Payload      json.RawMessage `json:"payload"`
+	Attempts     int             `json:"attempts"`
+	LastError    string          `json:"lastError"`
+	SentAt       *time.Time      `json:"sentAt"`
+	CreatedAt    time.Time       `json:"createdAt"`
+	UpdatedAt    time.Time       `json:"updatedAt"`
 }
 
 type Trip struct {
@@ -83,6 +87,8 @@ type ManualInput struct {
 	EventAt   *time.Time `json:"eventAt"`
 	RemindAt  time.Time  `json:"remindAt"`
 	TargetURL string     `json:"targetUrl"`
+	// Visibility private（默认，只提醒自己）/ family（全家都提醒）
+	Visibility string `json:"visibility"`
 }
 
 func (s *Service) PublicKey() string { return s.config.VAPIDPublicKey }
@@ -126,7 +132,8 @@ func (s *Service) CreateManual(ctx context.Context, familyKey string, input Manu
 		return Reminder{}, errors.New("提醒标题和时间不能为空")
 	}
 	return s.upsert(ctx, familyKey, reminderSeed{Kind: "manual", Title: input.Title, Body: input.Body,
-		EventAt: input.EventAt, RemindAt: input.RemindAt.In(shanghai), DedupeKey: keys.New("manual"), TargetURL: input.TargetURL})
+		EventAt: input.EventAt, RemindAt: input.RemindAt.In(shanghai), DedupeKey: keys.New("manual"), TargetURL: input.TargetURL,
+		Visibility: viewer.Resolve(ctx, input.Visibility)})
 }
 
 func (s *Service) Dismiss(ctx context.Context, familyKey, reminderKey string) error {
@@ -141,8 +148,10 @@ func (s *Service) Dismiss(ctx context.Context, familyKey, reminderKey string) er
 	return nil
 }
 
+// Owner / Visibility 为空时：归当前账号（后台里是系统账号），私有。
 type reminderSeed struct {
 	Kind, Title, Body, SourceType, SourceKey, DedupeKey, TargetURL string
+	Owner, Visibility                                              string
 	EventAt                                                        *time.Time
 	RemindAt                                                       time.Time
 	Payload                                                        any
@@ -153,10 +162,16 @@ func (s *Service) upsert(ctx context.Context, familyKey string, seed reminderSee
 	err := s.db.WithContext(ctx).Where("family_key = ? AND dedupe_key = ?", familyKey, seed.DedupeKey).First(&existing).Error
 	payload := db.MustJSON(seed.Payload)
 	now := time.Now()
+	if seed.Owner == "" {
+		seed.Owner = viewer.Owner(ctx)
+	}
+	if seed.Visibility != viewer.Family {
+		seed.Visibility = viewer.Private
+	}
 	if err == nil {
 		if existing.Status == StatusScheduled || existing.Status == StatusFailed {
 			updates := map[string]any{"title": seed.Title, "body": seed.Body, "event_at": seed.EventAt, "remind_at": seed.RemindAt,
-				"target_url": seed.TargetURL, "payload": payload, "updated_at": now}
+				"target_url": seed.TargetURL, "payload": payload, "visibility": seed.Visibility, "updated_at": now}
 			if err := s.db.WithContext(ctx).Model(&existing).Updates(updates).Error; err != nil {
 				return Reminder{}, err
 			}
@@ -169,6 +184,7 @@ func (s *Service) upsert(ctx context.Context, familyKey string, seed reminderSee
 	}
 	row := reminderRow{ReminderKey: keys.New("rmd"), FamilyKey: familyKey, Kind: seed.Kind, Title: seed.Title, Body: seed.Body,
 		EventAt: seed.EventAt, RemindAt: seed.RemindAt, Status: StatusScheduled, SourceType: seed.SourceType, SourceKey: seed.SourceKey,
+		OwnerAccount: seed.Owner, Visibility: seed.Visibility,
 		DedupeKey: seed.DedupeKey, TargetURL: seed.TargetURL, Payload: payload, CreatedAt: now, UpdatedAt: now}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		// 两个 worker 同时派生同一条时，唯一键冲突后读已有结果。
@@ -187,6 +203,25 @@ func (s *Service) get(ctx context.Context, familyKey, reminderKey string) (Remin
 		return Reminder{}, ErrNotFound
 	}
 	return row.toDTO(), nil
+}
+
+// SetVisibility 改提醒的可见范围：private 只提醒自己，family 全家都提醒。只有归属人自己能改。
+func (s *Service) SetVisibility(ctx context.Context, familyKey, reminderKey, visibility string) (Reminder, error) {
+	if visibility != viewer.Private && visibility != viewer.Family {
+		return Reminder{}, errors.New("可见范围只能是 private 或 family")
+	}
+	item, err := s.get(ctx, familyKey, reminderKey)
+	if err != nil {
+		return Reminder{}, err
+	}
+	if !viewer.CanChange(ctx, item.OwnerAccount) {
+		return Reminder{}, errors.New("只有设这条提醒的人能改谁能收到")
+	}
+	if err := s.db.WithContext(ctx).Model(&reminderRow{}).Where("family_key = ? AND reminder_key = ?", familyKey, reminderKey).
+		Updates(map[string]any{"visibility": visibility, "updated_at": time.Now()}).Error; err != nil {
+		return Reminder{}, err
+	}
+	return s.get(ctx, familyKey, reminderKey)
 }
 
 func endpointHash(endpoint string) string {

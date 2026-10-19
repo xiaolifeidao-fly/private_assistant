@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
-import { Dialog, PullToRefresh, Toast } from "antd-mobile";
-import { Check, Inbox, PartyPopper, Plane, Plus, RefreshCw, Sparkles } from "lucide-react";
+import { PullToRefresh, Toast } from "antd-mobile";
+import { Check, Inbox, PartyPopper, Plane, Plus, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { notifyPendingChanged, useOnResume } from "@/lib/events";
 import { personLabel, usePersons } from "@/lib/family";
@@ -16,17 +16,19 @@ import { NoteSheet, noteStatus } from "@/components/note-sheet";
 import { PushCard } from "@/components/push-card";
 import { ReminderSheet, reminderMeta } from "@/components/reminder-sheet";
 import { TripSheet } from "@/components/trip-sheet";
+import { useMe } from "@/lib/role";
 import { Avatar, Card, Empty, PageHeader, Pill, Row, Section, Skeleton, Tip } from "@/components/ui";
 
 /**
- * 今天：待我确认的记忆 + 还没办完的承诺和诉求 + 近期提醒和行程 + 最近交给助理整理的记录。
+ * 今天：近期提醒和行程 + 待我确认的记忆 + 最近交给助理整理的记录。
  */
 export default function TodayPage() {
   const router = useRouter();
   const persons = usePersons();
+  // 人设卡只给我自己看（老婆的账号不显示「她们最近的变化」）
+  const { role } = useMe();
   const [loaded, setLoaded] = useState(false);
   const [pending, setPending] = useState<Memory[]>([]);
-  const [open, setOpen] = useState<Memory[]>([]);
   const [viewing, setViewing] = useState<string | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [openNote, setOpenNote] = useState<Note | null>(null);
@@ -39,16 +41,14 @@ export default function TodayPage() {
 
   const load = useCallback(async () => {
     try {
-      const [pendingPage, openPage, notePage, reminderList, tripList] = await Promise.all([
+      const [pendingPage, notePage, reminderList, tripList] = await Promise.all([
         api.get<Paged<Memory>>("/memories?statuses=pending&size=100"),
-        api.get<Paged<Memory>>("/memories?types=commitment,need&statuses=active&size=100"),
         api.get<Paged<Note>>("/notes?size=8"),
         api.get<Reminder[]>("/reminders?days=30"),
         api.get<Trip[]>("/trips"),
       ]);
       setPending(pendingPage.items);
       setNotes(notePage.items);
-      setOpen(openPage.items.filter((m) => !m.attrs || !("status" in m.attrs) || m.attrs.status === "open" || m.attrs.status === ""));
       setReminders(reminderList);
       setTrips(tripList);
       setLeaving({});
@@ -118,27 +118,11 @@ export default function TodayPage() {
     }
   };
 
-  const markDone = async (memory: Memory) => {
-    const confirmed = await Dialog.confirm({ title: "已经做到了？", content: memory.title, confirmText: "做到了", cancelText: "还没" });
-    if (!confirmed) return;
-    try {
-      await api.put(`/memories/${memory.memoryKey}`, {
-        ...memory,
-        attrs: { ...(memory.attrs ?? {}), status: memory.type === "need" ? "addressed" : "done", doneAt: dayjs().format("YYYY-MM-DD") },
-      });
-      dismiss(memory.memoryKey, "done", () => setOpen((list) => list.filter((m) => m.memoryKey !== memory.memoryKey)));
-      Toast.show({ icon: "success", content: "好样的" });
-    } catch (error) {
-      Toast.show({ content: (error as Error).message });
-    }
-  };
-
   const summary = [
     pending.length ? `${pending.length} 条待你确认` : "",
-    open.length ? `${open.length} 件事还没办完` : "",
   ].filter(Boolean).join("，");
   const nextReminder = reminders[0];
-  const allClear = pending.length === 0 && open.length === 0;
+  const allClear = pending.length === 0;
 
   return (
     <PullToRefresh onRefresh={load}>
@@ -149,14 +133,13 @@ export default function TodayPage() {
       />
 
       <div className="today-stats">
-        <Stat label="待确认" value={pending.length} tone="amber" onClick={() => scrollTo("today-pending")} />
-        <Stat label="没办完" value={open.length} tone="clay" onClick={() => scrollTo("today-open")} />
         <Stat
           label={nextReminder ? `下次 · ${upcomingDay(nextReminder.remindAt).label}` : "近期提醒"}
           value={reminders.length}
           tone="sky"
           onClick={() => scrollTo("today-reminders")}
         />
+        <Stat label="待确认" value={pending.length} tone="amber" onClick={() => scrollTo("today-pending")} />
       </div>
 
       {!loaded ? (
@@ -164,116 +147,6 @@ export default function TodayPage() {
       ) : (
         <>
           <PushCard placement="top" />
-
-          {pending.length > 0 && (
-            <Tip id="today-review" title="助理拿不准的，会在这里等你确认" style={{ marginTop: 16 }}>
-              点<b>确认</b>才会记下；记错了点<b>不对，驳回</b>。点卡片可以看完整内容。
-            </Tip>
-          )}
-          {open.length > 0 && pending.length === 0 && (
-            <Tip id="today-open" title="事情办完了，点左边的圆圈" style={{ marginTop: 16 }}>
-              答应过的事、她在意的事都在「还没办完的事」里，办完点一下圆圈就会划掉。
-            </Tip>
-          )}
-          {allClear && (
-            <div className="today-clear">
-              <div className="today-clear-icon"><PartyPopper size={22} /></div>
-              <div>
-                <div className="today-clear-title">今天都处理好了</div>
-                <div className="today-clear-sub">有新的需要你确认的，这里会第一时间出现</div>
-              </div>
-            </div>
-          )}
-
-          {!allClear && <Section title="待确认的记忆" count={pending.length} countTone="accent" style={{ scrollMarginTop: 12 }}>
-            <div id="today-pending" />
-            {pending.length === 0 ? (
-              <Card><Empty icon={<Check size={22} />} title="没有需要确认的" hint="助理拿不准的记忆会放在这里等你确认" compact /></Card>
-            ) : (
-              <div className="today-stack pa-stagger">
-                {pending.map((memory, index) => (
-                  <div key={memory.memoryKey} className="today-review" data-leaving={leaving[memory.memoryKey]} style={{ "--i": index } as React.CSSProperties}>
-                    <div onClick={() => setViewing(memory.memoryKey)} style={{ cursor: "pointer" }}>
-                      <div className="today-review-meta">
-                        <Pill tone={typeTone(memory.type)}>{memory.typeLabel}</Pill>
-                        <span className="today-who" data-tone={personTone(memory.subjectPerson, persons)}>
-                          <span className="pa-dot" />
-                          {memory.subjectPerson ? personLabel(persons, memory.subjectPerson) : "全家"}
-                        </span>
-                        <span className="today-when">{shortTime(memory.occurredAt ?? memory.createdAt)}</span>
-                      </div>
-                      <div className="today-review-title">{memory.title}</div>
-                      {memory.content !== memory.title && <div className="today-review-body">{memory.content}</div>}
-                      {memory.supersedesKey && (
-                        <div className="today-review-change"><RefreshCw size={12} strokeWidth={2.4} />会替代一条旧记忆——她的想法变了</div>
-                      )}
-                    </div>
-                    <div className="today-review-actions">
-                      <button className="pa-btn" data-size="sm" data-variant="soft" onClick={() => setStatus(memory, "rejected")}>不对，驳回</button>
-                      <button className="pa-btn" data-size="sm" data-variant="accent" onClick={() => setStatus(memory, "active")}><Check size={15} strokeWidth={2.6} />确认</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>}
-
-          {changes.length > 0 && (
-            <Section title="她们最近的变化" count={changes.length}>
-              <Card>
-                {changes.map((card) => {
-                  const person = persons.find((p) => p.personKey === card.personKey);
-                  return (
-                    <Row
-                      key={card.cardKey}
-                      inset={64}
-                      leading={<Avatar tone={personTone(card.personKey, persons)} size={36}>{personInitial(person)}</Avatar>}
-                      title={card.changes || "人设卡更新了"}
-                      clampTitle
-                      subtitle={`${personLabel(persons, card.personKey)} · 第 ${card.version} 版 · ${shortTime(card.createdAt)}`}
-                      onClick={() => router.push(`/person/${card.personKey}#changes`)}
-                      chevron
-                    />
-                  );
-                })}
-              </Card>
-            </Section>
-          )}
-
-          {!allClear && <Section title="还没办完的事" count={open.length}>
-            <div id="today-open" />
-            {open.length === 0 ? (
-              <Card><Empty icon={<Sparkles size={22} />} title="都办完了" hint="答应过的事、她在意的事会出现在这里" compact /></Card>
-            ) : (
-              <Card>
-                {open.map((memory) => {
-                  const due = typeof memory.attrs?.dueAt === "string" ? memory.attrs.dueAt : "";
-                  const overdue = due && dayjs(due).isBefore(dayjs(), "day");
-                  return (
-                    <div key={memory.memoryKey} className="today-todo" data-leaving={leaving[memory.memoryKey]}>
-                      <Row
-                        inset={56}
-                        leading={
-                          <button className="today-check" aria-label="标记完成" onClick={(event) => { event.stopPropagation(); void markDone(memory); }}>
-                            <Check size={14} strokeWidth={3} />
-                          </button>
-                        }
-                        title={memory.title}
-                        subtitle={
-                          <span className="today-todo-sub">
-                            <Pill tone={memory.type === "commitment" ? "clay" : "rose"}>{memory.type === "commitment" ? "我答应的" : "她在意的"}</Pill>
-                            <span>{personLabel(persons, memory.subjectPerson)} · {shortTime(memory.occurredAt ?? memory.createdAt)}</span>
-                            {due && <Pill tone={overdue ? "rose" : "slate"}>{overdue ? "已过期" : "截止"} {dayjs(due).format("M月D日")}</Pill>}
-                          </span>
-                        }
-                        onClick={() => setViewing(memory.memoryKey)}
-                      />
-                    </div>
-                  );
-                })}
-              </Card>
-            )}
-          </Section>}
 
           <Section
             title="近期提醒"
@@ -334,6 +207,76 @@ export default function TodayPage() {
             {reminders.length > 12 && <div className="pa-hint" style={{ marginTop: 10, textAlign: "center" }}>只显示最近 12 条，还有 {reminders.length - 12} 条</div>}
           </Section>
 
+          {pending.length > 0 && (
+            <Tip id="today-review" title="助理拿不准的，会在这里等你确认" style={{ marginTop: 16 }}>
+              点<b>确认</b>才会记下；记错了点<b>不对，驳回</b>。点卡片可以看完整内容。
+            </Tip>
+          )}
+          {allClear && (
+            <div className="today-clear">
+              <div className="today-clear-icon"><PartyPopper size={22} /></div>
+              <div>
+                <div className="today-clear-title">今天都处理好了</div>
+                <div className="today-clear-sub">有新的需要你确认的，这里会第一时间出现</div>
+              </div>
+            </div>
+          )}
+
+          {!allClear && <Section title="待确认的记忆" count={pending.length} countTone="accent" style={{ scrollMarginTop: 12 }}>
+            <div id="today-pending" />
+            {pending.length === 0 ? (
+              <Card><Empty icon={<Check size={22} />} title="没有需要确认的" hint="助理拿不准的记忆会放在这里等你确认" compact /></Card>
+            ) : (
+              <div className="today-stack pa-stagger">
+                {pending.map((memory, index) => (
+                  <div key={memory.memoryKey} className="today-review" data-leaving={leaving[memory.memoryKey]} style={{ "--i": index } as React.CSSProperties}>
+                    <div onClick={() => setViewing(memory.memoryKey)} style={{ cursor: "pointer" }}>
+                      <div className="today-review-meta">
+                        <Pill tone={typeTone(memory.type)}>{memory.typeLabel}</Pill>
+                        <span className="today-who" data-tone={personTone(memory.subjectPerson, persons)}>
+                          <span className="pa-dot" />
+                          {memory.subjectPerson ? personLabel(persons, memory.subjectPerson) : "全家"}
+                        </span>
+                        <span className="today-when">{shortTime(memory.occurredAt ?? memory.createdAt)}</span>
+                      </div>
+                      <div className="today-review-title">{memory.title}</div>
+                      {memory.content !== memory.title && <div className="today-review-body">{memory.content}</div>}
+                      {memory.supersedesKey && (
+                        <div className="today-review-change"><RefreshCw size={12} strokeWidth={2.4} />会替代一条旧记忆——她的想法变了</div>
+                      )}
+                    </div>
+                    <div className="today-review-actions">
+                      <button className="pa-btn" data-size="sm" data-variant="soft" onClick={() => setStatus(memory, "rejected")}>不对，驳回</button>
+                      <button className="pa-btn" data-size="sm" data-variant="accent" onClick={() => setStatus(memory, "active")}><Check size={15} strokeWidth={2.6} />确认</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>}
+
+          {role === "self" && changes.length > 0 && (
+            <Section title="她们最近的变化" count={changes.length}>
+              <Card>
+                {changes.map((card) => {
+                  const person = persons.find((p) => p.personKey === card.personKey);
+                  return (
+                    <Row
+                      key={card.cardKey}
+                      inset={64}
+                      leading={<Avatar tone={personTone(card.personKey, persons)} size={36}>{personInitial(person)}</Avatar>}
+                      title={card.changes || "人设卡更新了"}
+                      clampTitle
+                      subtitle={`${personLabel(persons, card.personKey)} · 第 ${card.version} 版 · ${shortTime(card.createdAt)}`}
+                      onClick={() => router.push(`/person/${card.personKey}#changes`)}
+                      chevron
+                    />
+                  );
+                })}
+              </Card>
+            </Section>
+          )}
+
           {notes.length > 0 && (
             <Section title="最近交给助理整理的">
               <Card>
@@ -371,7 +314,7 @@ export default function TodayPage() {
       <TripSheet open={tripOpen} onClose={() => setTripOpen(false)} onCreated={() => void load()} />
 
       <style jsx global>{`
-        .today-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 10px 16px 0; }
+        .today-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px 16px 0; }
         .today-stat-value { transition: color 0.3s; }
         .today-stat {
           appearance: none;
@@ -446,34 +389,6 @@ export default function TodayPage() {
           padding-top: 12px;
           border-top: 0.5px solid var(--pa-line);
         }
-
-        .today-todo { transition: opacity 0.3s, transform 0.3s var(--pa-ease); }
-        .today-todo[data-leaving="done"] { opacity: 0; transform: translateX(16px); }
-        .today-todo + .today-todo .pa-row::before {
-          content: "";
-          position: absolute;
-          top: 0;
-          right: 0;
-          left: var(--pa-row-inset, 16px);
-          border-top: 0.5px solid var(--pa-line);
-        }
-        .today-check {
-          width: 26px;
-          height: 26px;
-          margin: 0 2px 0 2px;
-          border-radius: 13px;
-          border: 1.5px solid var(--pa-line-strong);
-          background: transparent;
-          color: transparent;
-          display: grid;
-          place-items: center;
-          cursor: pointer;
-          flex-shrink: 0;
-          transition: all 0.2s;
-        }
-        .today-check:active { border-color: var(--pa-success); background: var(--pa-success-soft); color: var(--pa-success); }
-        .today-todo[data-leaving="done"] .today-check { border-color: var(--pa-success); background: var(--pa-success); color: #fff; }
-        .today-todo-sub { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 2px; }
 
         .today-trips { display: flex; flex-direction: column; gap: 10px; padding: 0 16px 10px; }
         .today-trip {

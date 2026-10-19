@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"common/viewer"
 	"service/family"
 	"service/llm"
 	"service/memory"
@@ -242,6 +243,10 @@ func channelLabel(channel string) string {
 
 // process 对一条原始记录跑完整个抽取流程，返回结果摘要。
 func (s *Service) process(ctx context.Context, row noteRow) (Result, error) {
+	// 以记录主人的身份整理：查重只看他看得到的记忆，新记忆归他、可见范围跟记录走
+	if row.OwnerAccount != "" {
+		ctx = viewer.With(ctx, viewer.Viewer{Account: row.OwnerAccount})
+	}
 	system, persons, err := s.extractSystem(ctx, row.FamilyKey)
 	if err != nil {
 		return Result{}, err
@@ -451,6 +456,7 @@ func (s *Service) apply(ctx context.Context, row noteRow, item candidate, choice
 		Type: item.Type, SubjectPerson: item.SubjectPerson, Persons: item.Persons, PlaceKey: item.Place,
 		Title: item.Title, Content: item.Content, Attrs: attrsOf(item, row.NoteKey), Importance: item.Importance,
 		Confidence: item.Confidence, OccurredAt: parseTime(item.OccurredAt), CreatedBy: "extract", SourceNoteKey: row.NoteKey,
+		OwnerAccount: row.OwnerAccount, Visibility: row.Visibility,
 	}
 	if choice.Action == "supersede" && choice.Target != "" {
 		input.SupersedesKey = choice.Target

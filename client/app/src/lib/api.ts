@@ -18,7 +18,11 @@ export function getToken(): string {
 export function setToken(token: string) {
   try {
     if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
+    else {
+      localStorage.removeItem(TOKEN_KEY);
+      // 换账号登录时别沿用上一个人的角色（见 role.ts）
+      localStorage.removeItem("pa_me");
+    }
   } catch {
     /* 隐私模式下不可用 */
   }

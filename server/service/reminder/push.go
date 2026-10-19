@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"common/keys"
+	"common/viewer"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 	"gorm.io/gorm"
@@ -83,8 +84,10 @@ func (s *Service) TestPush(ctx context.Context, familyKey string) error {
 		return errors.New("服务端还没配置 Web Push")
 	}
 	now := time.Now()
+	// 测试推送只发给点按钮的人自己的设备
 	item := Reminder{ReminderKey: keys.New("test"), Kind: "test", Title: "家庭助理推送已开启",
-		Body: "以后生日、承诺和回老家简报会在这里提醒你。", TargetURL: "/today", RemindAt: now}
+		Body: "以后生日、承诺和回老家简报会在这里提醒你。", TargetURL: "/today", RemindAt: now,
+		OwnerAccount: viewer.Owner(ctx), Visibility: viewer.Private}
 	sent, _, err := s.deliver(ctx, familyKey, item)
 	if err != nil {
 		return err
@@ -97,7 +100,12 @@ func (s *Service) TestPush(ctx context.Context, familyKey string) error {
 
 func (s *Service) deliver(ctx context.Context, familyKey string, item Reminder) (int, int, error) {
 	var subscriptions []subscriptionRow
-	if err := s.db.WithContext(ctx).Where("family_key = ? AND enabled = 1", familyKey).Find(&subscriptions).Error; err != nil {
+	// 私有提醒只推给归属账号的设备；全家可见的推给全家
+	query := s.db.WithContext(ctx).Where("family_key = ? AND enabled = 1", familyKey)
+	if item.Visibility != viewer.Family && item.OwnerAccount != "" {
+		query = query.Where("account_key = ?", item.OwnerAccount)
+	}
+	if err := query.Find(&subscriptions).Error; err != nil {
 		return 0, 0, err
 	}
 	if len(subscriptions) == 0 {

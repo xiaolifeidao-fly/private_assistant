@@ -23,6 +23,7 @@ func (h *Handler) RegisterHandler(group *gin.RouterGroup) {
 	group.POST("/memories", h.create)
 	group.PUT("/memories/:key", h.update)
 	group.POST("/memories/:key/status", h.setStatus)
+	group.PUT("/memories/:key/visibility", h.setVisibility)
 }
 
 func familyKey(c *gin.Context) string { return httpx.MustUser(c).FamilyKey }
@@ -76,6 +77,18 @@ func (h *Handler) update(c *gin.Context) {
 		return
 	}
 	result, err := h.memory.Update(c.Request.Context(), familyKey(c), c.Param("key"), body)
+	httpx.JSON(c, result, err)
+}
+
+// setVisibility 改谁能看到：private 只有自己 / family 全家。只有记下它的人能改。
+func (h *Handler) setVisibility(c *gin.Context) {
+	var body struct {
+		Visibility string `json:"visibility"`
+	}
+	if !httpx.Bind(c, &body) {
+		return
+	}
+	result, err := h.memory.SetVisibility(c.Request.Context(), familyKey(c), c.Param("key"), body.Visibility)
 	httpx.JSON(c, result, err)
 }
 

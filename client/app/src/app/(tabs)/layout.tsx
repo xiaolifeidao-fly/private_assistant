@@ -11,8 +11,9 @@ import { onPendingChanged, useOnResume } from "@/lib/events";
 import { refreshFamily } from "@/lib/family";
 import { markWelcomeSeen, onGuideReset, welcomeSeen } from "@/lib/guide";
 import { flushOutbox } from "@/lib/outbox";
+import { roleTabs, useMe } from "@/lib/role";
 
-const tabs = [
+const allTabs = [
   { key: "/", title: "对话", icon: MessageCircle },
   { key: "/note", title: "速记", icon: PenLine },
   { key: "/today", title: "今天", icon: CalendarDays },
@@ -30,6 +31,14 @@ export default function TabsLayout({ children }: { children: ReactNode }) {
 function TabsShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  // 奶奶的账号进长辈模式；老婆的账号少一个「家人」页；我自己的不变
+  const { role, ready } = useMe();
+  const tabs = allTabs.filter((tab) => roleTabs[role === "elder" ? "self" : role].includes(tab.key));
+  useEffect(() => {
+    if (!ready) return;
+    if (role === "elder") router.replace("/elder");
+    else if (!roleTabs[role].includes(pathname)) router.replace("/");
+  }, [ready, role, pathname, router]);
   const [pending, setPending] = useState(0);
   const [welcome, setWelcome] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -68,7 +77,7 @@ function TabsShell({ children }: { children: ReactNode }) {
 
   // 预取其它标签页，切换时不用等编译 / 下载
   useEffect(() => {
-    tabs.forEach((tab) => router.prefetch(tab.key));
+    allTabs.forEach((tab) => router.prefetch(tab.key));
   }, [router]);
 
   useEffect(() => setScrolled(false), [pathname]);
@@ -78,6 +87,7 @@ function TabsShell({ children }: { children: ReactNode }) {
   };
 
   const current = tabs.find((tab) => tab.key === pathname);
+  if (ready && role === "elder") return <div style={{ height: "100dvh", background: "var(--pa-bg)" }} />;
 
   return (
     <div className="pa-screen">
@@ -111,7 +121,7 @@ function TabsShell({ children }: { children: ReactNode }) {
           })}
         </div>
       </nav>
-      {welcome && (
+      {welcome && role === "self" && (
         <Welcome
           onDone={() => {
             markWelcomeSeen();

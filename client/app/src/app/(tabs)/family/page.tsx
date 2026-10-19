@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { logout as signOut } from "@/lib/role";
 import { Dialog, PullToRefresh } from "antd-mobile";
 import { Compass, LogOut, Monitor } from "lucide-react";
-import { api, setToken } from "@/lib/api";
 import { resetGuide } from "@/lib/guide";
 import { personLabel, personsError, refreshFamily, usePersons } from "@/lib/family";
 import { personInitial, personTone } from "@/lib/tone";
@@ -22,8 +22,7 @@ export default function FamilyPage() {
   const logout = async () => {
     const confirmed = await Dialog.confirm({ title: "退出登录？", content: "退出后需要重新输入账号密码。", confirmText: "退出", cancelText: "取消" });
     if (!confirmed) return;
-    await api.post("/auth/logout").catch(() => {});
-    setToken("");
+    await signOut();
     router.replace("/login");
   };
 

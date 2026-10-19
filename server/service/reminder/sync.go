@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"common/viewer"
 	"service/memory"
 )
 
@@ -22,6 +23,8 @@ var festivals = []festival{
 
 // SyncDerived 把人物、记忆和行程中的日期同步为可投递提醒。重复执行是幂等的。
 func (s *Service) SyncDerived(ctx context.Context, familyKey string, now time.Time) error {
+	// 不管是谁触发的（比如建行程），都按系统账号同步，免得把别人看不到的提醒当成过期取消掉
+	ctx = viewer.AsSystem(ctx)
 	now = now.In(shanghai)
 	if err := s.syncBirthdays(ctx, familyKey, now); err != nil {
 		return err
@@ -143,7 +146,7 @@ func (s *Service) syncDatedMemories(ctx context.Context, familyKey string, now t
 			}
 			eventAt := due
 			_, err = s.upsert(ctx, familyKey, reminderSeed{Kind: kind, Title: title, Body: body, EventAt: &eventAt,
-				RemindAt: remindAt, SourceType: "memory", SourceKey: item.MemoryKey,
+				RemindAt: remindAt, SourceType: "memory", SourceKey: item.MemoryKey, Owner: item.OwnerAccount, Visibility: item.Visibility,
 				DedupeKey: fmt.Sprintf("memory:%s:%s:%d", item.MemoryKey, due.Format("20060102"), lead), TargetURL: "/today?memory=" + item.MemoryKey})
 			if err != nil {
 				return err

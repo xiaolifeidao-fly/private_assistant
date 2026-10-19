@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"common/viewer"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -102,7 +103,8 @@ func (index *vectorIndex) upsert(familyKey, model, memoryKey string, vector []fl
 	current.vectors[memoryKey] = vector
 }
 
-func (index *vectorIndex) search(familyKey string, query []float32, topK int) []vectorHit {
+// allow 非空时只在它放行的编号里找（按可见范围过滤）。
+func (index *vectorIndex) search(familyKey string, query []float32, topK int, allow func(key string) bool) []vectorHit {
 	index.mu.RLock()
 	defer index.mu.RUnlock()
 	current := index.families[familyKey]
@@ -111,7 +113,7 @@ func (index *vectorIndex) search(familyKey string, query []float32, topK int) []
 	}
 	hits := make([]vectorHit, 0, len(current.vectors))
 	for memoryKey, vector := range current.vectors {
-		if len(vector) != len(query) {
+		if len(vector) != len(query) || (allow != nil && !allow(memoryKey)) {
 			continue
 		}
 		var dot float64
@@ -191,7 +193,7 @@ func (s *Service) embedAsync(familyKey string, row memoryRow) {
 		return
 	}
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(viewer.Unscoped(context.Background()), 30*time.Second)
 		defer cancel()
 		if err := s.embedRows(ctx, familyKey, []memoryRow{row}); err != nil {
 			log.Printf("记忆 %s 向量化失败（稍后补算）: %v", row.MemoryKey, err)

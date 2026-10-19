@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"math"
 	"testing"
 	"time"
@@ -14,12 +15,12 @@ func TestVectorIndexRanksByCosine(t *testing.T) {
 		"mid":  {float32(math.Sqrt(0.5)), float32(math.Sqrt(0.5))},
 		"bad":  {1, 0, 0}, // 维度不一致的脏数据要跳过
 	}}
-	hits := index.search("f", []float32{1, 0}, 2)
+	hits := index.search("f", []float32{1, 0}, 2, nil)
 	if len(hits) != 2 || hits[0].MemoryKey != "near" || hits[1].MemoryKey != "mid" {
 		t.Fatalf("排序错误: %#v", hits)
 	}
 	index.upsert("f", "m", "far", []float32{1, 0})
-	if hits := index.search("f", []float32{1, 0}, 1); hits[0].Score < 0.99 {
+	if hits := index.search("f", []float32{1, 0}, 1, nil); hits[0].Score < 0.99 {
 		t.Fatalf("upsert 没生效: %#v", hits)
 	}
 	index.upsert("f", "other-model", "x", []float32{1, 0})
@@ -53,17 +54,17 @@ func TestRecencyDecaysOnlyEphemeralTypes(t *testing.T) {
 
 func TestBuildRowDefaults(t *testing.T) {
 	service := &Service{}
-	row, err := service.buildRow("f", Input{Type: "custom", PlaceKey: "home_wife_parents", Content: "初二回娘家，给长辈的红包不少于一千"})
+	row, err := service.buildRow(context.Background(), "f", Input{Type: "custom", PlaceKey: "home_wife_parents", Content: "初二回娘家，给长辈的红包不少于一千"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if row.Scope != "place" || row.Status != StatusActive || row.Importance != 3 || row.Title == "" {
 		t.Fatalf("默认值错误: %#v", row)
 	}
-	if _, err := service.buildRow("f", Input{Type: "nope", Content: "x"}); err == nil {
+	if _, err := service.buildRow(context.Background(), "f", Input{Type: "nope", Content: "x"}); err == nil {
 		t.Fatal("未知类型应报错")
 	}
-	if _, err := service.buildRow("f", Input{Type: "quote", Content: "x", Attrs: []byte("{bad")}); err == nil {
+	if _, err := service.buildRow(context.Background(), "f", Input{Type: "quote", Content: "x", Attrs: []byte("{bad")}); err == nil {
 		t.Fatal("非法 attrs 应报错")
 	}
 }

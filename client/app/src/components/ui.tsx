@@ -15,12 +15,19 @@ export function useLatest<T>(value: T | null | undefined): T | null {
 
 /* ---------- 页头 ---------- */
 
-export function PageHeader({ eyebrow, title, subtitle, action }: { eyebrow?: ReactNode; title: ReactNode; subtitle?: ReactNode; action?: ReactNode }) {
+export function PageHeader({ eyebrow, title, subtitle, action, leading }: { eyebrow?: ReactNode; title: ReactNode; subtitle?: ReactNode; action?: ReactNode; leading?: ReactNode }) {
   return (
     <header className="pa-header">
       {eyebrow && <div className="pa-eyebrow">{eyebrow}</div>}
       <div className="pa-header-row">
-        <h1 className="pa-title">{title}</h1>
+        {leading ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+            {leading}
+            <h1 className="pa-title">{title}</h1>
+          </div>
+        ) : (
+          <h1 className="pa-title">{title}</h1>
+        )}
         {action}
       </div>
       {subtitle && <div className="pa-subtitle">{subtitle}</div>}
@@ -28,12 +35,13 @@ export function PageHeader({ eyebrow, title, subtitle, action }: { eyebrow?: Rea
   );
 }
 
-export function NavBar({ title, subtitle, onBack, left, right }: { title?: ReactNode; subtitle?: ReactNode; onBack?: () => void; left?: ReactNode; right?: ReactNode }) {
+export function NavBar({ title, subtitle, onBack, leading, left, right }: { title?: ReactNode; subtitle?: ReactNode; onBack?: () => void; leading?: ReactNode; left?: ReactNode; right?: ReactNode }) {
   return (
     <div className="pa-nav">
       <div className="pa-nav-inner">
         <div>
-          {onBack && (
+          {leading}
+          {!leading && onBack && (
             <button className="pa-icon-btn" onClick={onBack} aria-label="返回">
               <ChevronLeft size={24} strokeWidth={2} />
             </button>

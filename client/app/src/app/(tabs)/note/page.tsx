@@ -14,6 +14,7 @@ import { personTone, typeTone } from "@/lib/tone";
 import { Button, Chips, PageHeader, Segmented, Tip } from "@/components/ui";
 import { PickedPhotos } from "@/components/photos";
 import { VoiceButton } from "@/components/voice-input";
+import { VisibilityOption, type Visibility } from "@/components/visibility";
 
 // 速记里常用的类型放前面；其余类型在管理端录入。名称内置一份，断网时也能显示中文。
 const quickTypes: [string, string][] = [
@@ -189,6 +190,7 @@ function QuickNoteForm() {
   const [content, setContent] = useState("");
   const [when, setWhen] = useState<Date>(new Date());
   const [importance, setImportance] = useState(3);
+  const [visibility, setVisibility] = useState<Visibility>("private");
   const [saving, setSaving] = useState(false);
   const [offline, setOffline] = useState(0);
 
@@ -237,6 +239,7 @@ function QuickNoteForm() {
         importance,
         occurredAt: when.toISOString(),
         attrs: Object.keys(attrs).length ? attrs : undefined,
+        visibility,
       };
       await api.post("/memories", body);
       reset();
@@ -259,6 +262,8 @@ function QuickNoteForm() {
     setContent("");
     setImportance(3);
     setWhen(new Date());
+    // 每次都回到默认的「只有我」，免得上一条选了全家，下一条不小心也公开
+    setVisibility("private");
   }
 
   return (
@@ -310,6 +315,8 @@ function QuickNoteForm() {
         </div>
       </div>
 
+      <VisibilityOption value={visibility} onChange={setVisibility} />
+
       <div className="note-submit">
         <Button block variant="accent" loading={saving} disabled={!content.trim()} onClick={submit}>记下来</Button>
         <div className="note-foot">说不清类型也没关系，直接去和助理说「记一下：……」</div>
@@ -331,6 +338,7 @@ function CaptureForm() {
   const [images, setImages] = useState<PickedImage[]>([]);
   const [when, setWhen] = useState<Date>(new Date());
   const [saving, setSaving] = useState(false);
+  const [visibility, setVisibility] = useState<Visibility>("private");
 
   useEffect(() => {
     try {
@@ -376,12 +384,14 @@ function CaptureForm() {
     form.set("channel", "capture");
     form.set("aboutPersons", about.join(","));
     form.set("occurredAt", when.toISOString());
+    form.set("visibility", visibility);
     images.forEach((image, index) => form.append("images", image.blob, `${index}.jpg`));
     setSaving(true);
     try {
       await postForm<Note>("/notes", form);
       images.forEach((image) => URL.revokeObjectURL(image.url));
       setText("");
+      setVisibility("private");
       setImages([]);
       setAbout([]);
       setWhen(new Date());
@@ -444,6 +454,8 @@ function CaptureForm() {
         <TimeChips value={when} onChange={setWhen} />
       </div>
 
+      <VisibilityOption value={visibility} onChange={setVisibility} />
+
       <div className="note-submit">
         <Button block variant="accent" loading={saving} disabled={!text.trim() && !images.length} onClick={submit}><Sparkles size={17} />交给助理整理</Button>
         <div className="note-foot">
@@ -476,6 +488,7 @@ function PasteForm({ pasted, onPastedTaken }: { pasted: File[]; onPastedTaken: (
   const [images, setImages] = useState<PickedImage[]>([]);
   const [when, setWhen] = useState<Date>(new Date());
   const [saving, setSaving] = useState(false);
+  const [visibility, setVisibility] = useState<Visibility>("private");
   const [preview, setPreview] = useState<number | null>(null);
 
   useEffect(() => {
@@ -551,11 +564,13 @@ function PasteForm({ pasted, onPastedTaken }: { pasted: File[]; onPastedTaken: (
     form.set("channel", images.length ? "screenshot" : "paste");
     form.set("aboutPersons", about.join(","));
     form.set("occurredAt", when.toISOString());
+    form.set("visibility", visibility);
     images.forEach((image, index) => form.append("images", image.blob, `${index}.jpg`));
     setSaving(true);
     try {
       await postForm<Note>("/notes", form);
       setText("");
+      setVisibility("private");
       setImages([]);
       Toast.show({ icon: "success", content: "已提交，整理好后在「今天」里看" });
       router.push("/today");
@@ -627,6 +642,8 @@ function PasteForm({ pasted, onPastedTaken }: { pasted: File[]; onPastedTaken: (
         <TimeChips value={when} onChange={setWhen} />
         <div className="pa-field-hint">聊天里的「昨天」「下周」会按这个时间换算</div>
       </div>
+
+      <VisibilityOption value={visibility} onChange={setVisibility} />
 
       <div className="note-submit">
         <Button block variant="accent" loading={saving} disabled={!text.trim() && !images.length} onClick={submit}><Sparkles size={17} />交给助理整理</Button>

@@ -70,6 +70,6 @@ func (a authenticator) AuthenticateToken(ctx context.Context, token string) (htt
 	}
 	return httpx.Principal{
 		AccountKey: account.AccountKey, Username: account.Username, DisplayName: account.DisplayName,
-		Realm: account.Realm, Role: account.Role, FamilyKey: account.FamilyKey,
+		Realm: account.Realm, Role: account.Role, FamilyKey: account.FamilyKey, PersonKey: account.PersonKey,
 	}, nil
 }

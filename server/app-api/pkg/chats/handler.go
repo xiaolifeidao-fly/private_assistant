@@ -12,6 +12,7 @@ import (
 	"common/middleware/httpx"
 	"service/bot"
 	"service/chat"
+	"service/identity"
 
 	"github.com/gin-gonic/gin"
 )
@@ -42,15 +43,19 @@ func owner(c *gin.Context) chat.Owner {
 	return chat.Owner{FamilyKey: principal.FamilyKey, AccountKey: principal.AccountKey}
 }
 
-// listBots 只返回 App 需要的字段，不下发系统提示词。
+// listBots 只返回 App 需要的字段，不下发系统提示词；按账号角色过滤（老婆、奶奶看不到分身和私人助理）。
 func (h *Handler) listBots(c *gin.Context) {
 	items, err := h.bots.List(c.Request.Context(), owner(c).FamilyKey, true)
 	if err != nil {
 		httpx.JSON(c, nil, err)
 		return
 	}
+	role := httpx.MustUser(c).Role
 	result := make([]gin.H, 0, len(items))
 	for _, item := range items {
+		if !identity.BotAllowed(role, item.BotKey) {
+			continue
+		}
 		result = append(result, gin.H{
 			"botKey": item.BotKey, "name": item.Name, "kind": item.Kind, "personKey": item.PersonKey,
 			"avatar": item.Avatar, "description": item.Description, "greeting": item.Greeting,
@@ -70,6 +75,10 @@ func (h *Handler) create(c *gin.Context) {
 		BotKey string `json:"botKey"`
 	}
 	if !httpx.Bind(c, &body) {
+		return
+	}
+	if !identity.BotAllowed(httpx.MustUser(c).Role, body.BotKey) {
+		httpx.Fail(c, "这个助手不对你的账号开放")
 		return
 	}
 	result, err := h.chat.CreateConversation(c.Request.Context(), owner(c), body.BotKey)

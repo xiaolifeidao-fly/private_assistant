@@ -8,6 +8,7 @@
 package main
 
 import (
+	"common/viewer"
 	"context"
 	"flag"
 	"fmt"
@@ -53,7 +54,8 @@ func main() {
 		StorageDir:       filepath.Join(os.TempDir(), "pa-eval-data"),
 		VectorStore:      "mysql", // 评测库每次清空重建，向量跟着库走
 	}
-	ctx := context.Background()
+	// 评测库每次清空重建，不按账号区分
+	ctx := viewer.Unscoped(context.Background())
 	if *retrievalOnly {
 		// 用线上同一套模型配置（向量模型、改写检索词的模型），命中率才有参考价值
 		if dsn := httpx.Property("source.sqlconn"); dsn != "" {
