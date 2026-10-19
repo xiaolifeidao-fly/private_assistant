@@ -868,6 +868,8 @@ input, textarea { font-size: 16px !important; font-family: var(--pa-font); }
 .adm-dialog-footer .adm-dialog-action-row > .adm-dialog-button { font-size: 16px; }
 .adm-dialog-button-bold { font-weight: 600; }
 .adm-pull-to-refresh-head-content { color: var(--pa-text-3); font-size: 13px; }
+/* 看大图：默认贴满整屏高，电脑上横图会大到看不全；四周留白、居中，整张都能看到（双指放大照常） */
+.adm-image-viewer-control .adm-image-viewer-image-wrapper img { max-width: 92%; max-height: 80%; }
 .adm-picker-header-button { color: var(--pa-accent); }
 .adm-picker-view-column-item-label { color: var(--pa-text); }
 
