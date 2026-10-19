@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 	"time"
 
@@ -275,7 +276,7 @@ func (s *Service) Send(ctx context.Context, owner Owner, conversationKey string,
 		}
 	}
 
-	// 首条消息时冻结系统提示词和工具列表，之后整个会话不再改动。
+	// 首条消息时冻结系统提示词，之后整个会话不再改动。
 	if conversation.SystemSnapshot == "" {
 		system, versions, err := s.buildSystem(ctx, owner.FamilyKey, item)
 		if err != nil {
@@ -288,6 +289,15 @@ func (s *Service) Send(ctx context.Context, owner Owner, conversationKey string,
 		if err := s.db.WithContext(ctx).Model(&conversationRow{}).Where("id = ?", conversation.ID).
 			Updates(map[string]any{"system_snapshot": system, "tools_snapshot": conversation.ToolsSnapshot, "bot_version": item.Version,
 				"persona_versions": conversation.PersonaVersions}).Error; err != nil {
+			return err
+		}
+	}
+	// 工具列表不冻结：每轮按机器人当前的配置给，管理端加了工具，开着的对话下一句就能用。
+	// tools_snapshot 记最近一轮实际给了哪些，排查时对得上。
+	if !slices.Equal([]string(conversation.ToolsSnapshot), item.Tools) {
+		conversation.ToolsSnapshot = db.StringList(item.Tools)
+		if err := s.db.WithContext(ctx).Model(&conversationRow{}).Where("id = ?", conversation.ID).
+			Update("tools_snapshot", conversation.ToolsSnapshot).Error; err != nil {
 			return err
 		}
 	}

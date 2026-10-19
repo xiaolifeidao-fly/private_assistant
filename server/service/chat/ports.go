@@ -74,4 +74,6 @@ type SettingPort interface {
 // DietPort 查孩子的饮食计划和实际吃了什么（diet_overview 工具）。
 type DietPort interface {
 	Summary(ctx context.Context, familyKey, childKey, from string, days int) (string, error)
+	// AdviceContext 给「某天该吃什么」准备材料：那天的计划、最近两周的计划和实际、最近一次每周对照。
+	AdviceContext(ctx context.Context, familyKey, childKey, date string) (string, error)
 }

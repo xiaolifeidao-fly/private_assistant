@@ -870,3 +870,9 @@ input, textarea { font-size: 16px !important; font-family: var(--pa-font); }
 .adm-pull-to-refresh-head-content { color: var(--pa-text-3); font-size: 13px; }
 .adm-picker-header-button { color: var(--pa-accent); }
 .adm-picker-view-column-item-label { color: var(--pa-text); }
+
+/* 按住输入框说话：长按时别弹系统的拷贝/粘贴菜单 */
+[data-voice-hold] textarea,
+textarea[data-voice-hold] {
+  -webkit-touch-callout: none;
+}

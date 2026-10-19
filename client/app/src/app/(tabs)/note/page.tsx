@@ -13,7 +13,8 @@ import { personLabel, usePersons, useMemoryTypes } from "@/lib/family";
 import { personTone, typeTone } from "@/lib/tone";
 import { Button, Chips, PageHeader, Segmented, Tip } from "@/components/ui";
 import { PickedPhotos } from "@/components/photos";
-import { VoiceButton } from "@/components/voice-input";
+import { useDictation, VoiceButton } from "@/components/voice-input";
+import { isSendKey } from "@/lib/keys";
 import { VisibilityOption, type Visibility } from "@/components/visibility";
 
 // 速记里常用的类型放前面；其余类型在管理端录入。名称内置一份，断网时也能显示中文。
@@ -327,7 +328,7 @@ function QuickNoteForm() {
 }
 
 /**
- * 随手录：想到什么说什么（iPhone 键盘上的麦克风可以直接听写），东西放在哪就拍张照。
+ * 随手录：想到什么说什么（按住输入框或点「说一段」，边说边出字），东西放在哪就拍张照。
  * 不用选类型，提交后由大模型清洗：认人、换算日期、拆成几条记忆、和旧记忆去重，没把握的进「今天」待确认。
  */
 function CaptureForm() {
@@ -339,6 +340,7 @@ function CaptureForm() {
   const [when, setWhen] = useState<Date>(new Date());
   const [saving, setSaving] = useState(false);
   const [visibility, setVisibility] = useState<Visibility>("private");
+  const dictation = useDictation({ value: text, onChange: setText, disabled: saving });
 
   useEffect(() => {
     try {
@@ -411,11 +413,13 @@ function CaptureForm() {
     <div>
       <div className="pa-field">
         <div className="pa-label">想记什么</div>
-        <div className="pa-textarea-wrap">
+        <div className="pa-textarea-wrap" {...dictation.holdProps}>
           <TextArea
             value={text}
             onChange={setText}
-            placeholder={images.length ? "这是什么、干什么用、放在哪……" : "发生了什么、谁说了什么、东西放哪了……想到哪说到哪"}
+            readOnly={dictation.busy}
+            placeholder={images.length ? "这是什么、干什么用、放在哪……（按住这里就能说）" : "发生了什么、谁说了什么、东西放哪了……想到哪说到哪（按住这里就能说）"}
+            onKeyDown={(event) => { if (isSendKey(event) && !saving && !dictation.busy) { event.preventDefault(); void submit(); } }}
             rows={4}
             autoSize={{ minRows: 4, maxRows: 14 }}
           />
@@ -426,10 +430,11 @@ function CaptureForm() {
           return list.filter((_, i) => i !== index);
         })} />
         <div className="note-tools">
-          <VoiceButton className="note-tool" onText={(spoken) => setText((current) => (current ? `${current}\n${spoken}` : spoken))}>
+          <VoiceButton className="note-tool" dictation={dictation}>
             <span className="note-tool-icon" data-tone="clay"><Mic size={20} strokeWidth={2} /></span>
-            说一段
+            {dictation.busy && dictation.mode === "tap" ? "说完了" : "说一段"}
           </VoiceButton>
+          {dictation.overlay}
           <label className="note-tool" data-disabled={images.length >= MAX_IMAGES}>
             <span className="note-tool-icon" data-tone="sky"><Camera size={20} strokeWidth={2} /></span>
             拍照
@@ -627,12 +632,12 @@ function PasteForm({ pasted, onPastedTaken }: { pasted: File[]; onPastedTaken: (
         </div>
         <div className="pa-field-hint">多条消息直接截图最省事；截图后可直接点「粘贴截图」，或在下面输入框里粘贴</div>
       </div>
-      <ImageViewer.Multi images={images.map((i) => i.url)} visible={preview !== null} defaultIndex={preview ?? 0} onClose={() => setPreview(null)} />
+      <ImageViewer.Multi getContainer={() => document.body} images={images.map((i) => i.url)} visible={preview !== null} defaultIndex={preview ?? 0} onClose={() => setPreview(null)} />
 
       <div className="pa-field">
         <div className="pa-label">或者粘贴文字</div>
         <div className="pa-textarea-wrap">
-          <TextArea value={text} onChange={setText} placeholder="粘贴聊天记录，或者把刚才发生的事写下来，越原汁原味越好" rows={4} autoSize={{ minRows: 4, maxRows: 14 }} />
+          <TextArea value={text} onChange={setText} onKeyDown={(event) => { if (isSendKey(event) && !saving) { event.preventDefault(); void submit(); } }} placeholder="粘贴聊天记录，或者把刚才发生的事写下来，越原汁原味越好" rows={4} autoSize={{ minRows: 4, maxRows: 14 }} />
           {text && <div className="pa-textarea-foot">{text.length} 字</div>}
         </div>
       </div>

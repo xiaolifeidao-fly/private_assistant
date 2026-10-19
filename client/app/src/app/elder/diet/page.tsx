@@ -7,12 +7,14 @@ import { Toast } from "antd-mobile";
 import { Camera, Check, ChevronLeft, Keyboard, Mic, Send, Utensils, Volume2, X } from "lucide-react";
 import { DietPhotos, RecordSheet } from "@/components/diet";
 import { HoldToTalk } from "@/components/elder/hold-to-talk";
+import { useDictation } from "@/components/voice-input";
 import { api } from "@/lib/api";
 import { amountLabel, captureRecord, dietOverview, today } from "@/lib/diet";
 import { compressImage } from "@/lib/image";
 import { canRecord } from "@/lib/recorder";
 import { canSpeak, speak, stopSpeaking } from "@/lib/speak";
 import type { DietMeal, DietOverview, DietRecord } from "@/lib/types";
+import { isSendKey } from "@/lib/keys";
 
 const MAX_PHOTOS = 3;
 
@@ -29,6 +31,8 @@ export default function ElderDietPage() {
   const [typing, setTyping] = useState(false);
   const [voice, setVoice] = useState(false);
   const [draft, setDraft] = useState("");
+  // 打字模式下按住输入框也能说，字会出现在框里
+  const dictation = useDictation({ value: draft, onChange: setDraft, disabled: sending });
   const [photos, setPhotos] = useState<{ blob: Blob; url: string }[]>([]);
   const [editing, setEditing] = useState<{ record?: DietRecord } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -209,7 +213,9 @@ export default function ElderDietPage() {
           </div>
         )}
         {typing && (
-          <textarea className="el-textarea" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="比如：中午吃了半碗饭，青菜没吃" rows={2} />
+          <textarea className="el-textarea" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="比如：中午吃了半碗饭，青菜没吃" rows={2}
+            onKeyDown={(event) => { if (isSendKey(event) && !dictation.busy) { event.preventDefault(); void send(draft); } }}
+            readOnly={dictation.busy} {...dictation.holdProps} />
         )}
         <div className="el-input-row">
           <button className="el-side-btn" onClick={() => fileRef.current?.click()} disabled={sending || photos.length >= MAX_PHOTOS} aria-label="拍照">
@@ -217,7 +223,7 @@ export default function ElderDietPage() {
             <span>拍照</span>
           </button>
           {typing ? (
-            <button className="el-send" onClick={() => void send(draft)} disabled={sending || (!draft.trim() && !photos.length)}>
+            <button className="el-send" onClick={() => void send(draft)} disabled={sending || dictation.busy || (!draft.trim() && !photos.length)}>
               <Send size={28} strokeWidth={2.3} />
               <span>记下</span>
             </button>
@@ -235,6 +241,7 @@ export default function ElderDietPage() {
           <button className="el-photo-only" onClick={() => void send("")} disabled={sending}>不说了，直接记照片</button>
         )}
       </footer>
+      {dictation.overlay}
       <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden
         onChange={(event) => {
           const files = Array.from(event.target.files ?? []);

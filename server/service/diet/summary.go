@@ -101,3 +101,63 @@ func joinNonEmpty(separator string, values ...string) string {
 	}
 	return strings.Join(parts, separator)
 }
+
+// adviceHistoryDays 出主意时看最近多少天实际吃了什么。
+const adviceHistoryDays = 14
+
+// AdviceContext 给「某天该吃什么」准备材料（diet_overview 的 for_date）：
+// 孩子年龄、那天（以及今天到那天之间）已经排的计划、最近两周的计划和实际、最近一次每周对照。
+// 建议由对话里的助理自己写，这里只给事实。
+func (s *Service) AdviceContext(ctx context.Context, familyKey, childKey, date string) (string, error) {
+	person, err := s.childPerson(ctx, familyKey, childKey)
+	if err != nil {
+		return "", err
+	}
+	today, _ := parseDate("")
+	target, err := parseDate(date)
+	if err != nil {
+		return "", err
+	}
+	if target.Before(today) {
+		target = today
+	}
+	if target.After(today.AddDate(0, 0, maxDays)) {
+		return "", fmt.Errorf("只能给 %d 天以内的日子出主意", maxDays)
+	}
+
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "孩子：%s", person.RoleLabel)
+	if age := ageOf(person.Birthday, today); age != "" {
+		fmt.Fprintf(&builder, "，%s", age)
+	}
+	fmt.Fprintf(&builder, "\n今天：%s；要出主意的是：%s\n", today.Format(dateLayout), target.Format(dateLayout))
+
+	// 要出主意的那天（和今天之间的日子）排了什么；那天就是今天的话，下面的最近两周里已经有了
+	if target.After(today) {
+		ahead := int(target.Sub(today).Hours()/24 + 0.5)
+		upcoming, err := s.Overview(ctx, familyKey, person.PersonKey, today.AddDate(0, 0, 1).Format(dateLayout), ahead, Actor{})
+		if err != nil {
+			return "", err
+		}
+		builder.WriteString("\n【接下来已经排的计划】\n")
+		builder.WriteString(formatOverview(upcoming))
+	}
+
+	history, err := s.Overview(ctx, familyKey, person.PersonKey, today.AddDate(0, 0, 1-adviceHistoryDays).Format(dateLayout), adviceHistoryDays, Actor{})
+	if err != nil {
+		return "", err
+	}
+	fmt.Fprintf(&builder, "\n【最近 %d 天，含今天】\n", adviceHistoryDays)
+	builder.WriteString(formatOverview(history))
+
+	// 最近一次每周对照里有「下周建议」，这周的还没写就看上周的
+	for _, day := range []time.Time{today, today.AddDate(0, 0, -7)} {
+		review, err := s.GetReview(ctx, familyKey, person.PersonKey, day.Format(dateLayout))
+		if err != nil || review == nil {
+			continue
+		}
+		fmt.Fprintf(&builder, "\n【%s 那周的计划对照（含建议）】\n%s\n", review.WeekStart, review.Content)
+		break
+	}
+	return builder.String(), nil
+}

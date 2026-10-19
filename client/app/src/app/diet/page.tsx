@@ -10,7 +10,8 @@ import { DietPhotos, PlanSheet, RecordSheet } from "@/components/diet";
 import { PickedPhotos } from "@/components/photos";
 import { RichText } from "@/components/rich-text";
 import { Button, LoadError, Loading, NavBar, Pill, Segmented, Tip } from "@/components/ui";
-import { VoiceButton } from "@/components/voice-input";
+import { useDictation, VoiceButton } from "@/components/voice-input";
+import { isSendKey } from "@/lib/keys";
 import { api } from "@/lib/api";
 import { amountLabel, capturePlan, captureRecord, dietOverview, mealLabels, today } from "@/lib/diet";
 import { compressImage } from "@/lib/image";
@@ -37,6 +38,7 @@ function DietBoard() {
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<{ blob: Blob; url: string }[]>([]);
   const [sending, setSending] = useState(false);
+  const dictation = useDictation({ value: text, onChange: setText, disabled: sending });
   const [reply, setReply] = useState("");
   const [review, setReview] = useState<DietReview | null>(null);
   const [reviewing, setReviewing] = useState(false);
@@ -260,14 +262,17 @@ function DietBoard() {
             <input type="file" accept="image/*" hidden disabled={photos.length >= MAX_PHOTOS || sending}
               onChange={(event) => { void pick(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
           </label>
-          <div className="pa-textarea-wrap diet-text">
+          <div className="pa-textarea-wrap diet-text" {...dictation.holdProps}>
             <TextArea value={text} onChange={setText} rows={1} autoSize={{ minRows: 1, maxRows: 4 }}
+              readOnly={dictation.busy}
+              onKeyDown={(event) => { if (isSendKey(event) && !dictation.busy) { event.preventDefault(); void send(); } }}
               placeholder={mode === "plan" ? "下周每天早上一个鸡蛋，周三晚饭吃鱼…" : "中午吃了半碗面条，青菜没吃…"} />
           </div>
-          <VoiceButton className="diet-tool" onText={(spoken) => setText((current) => (current ? `${current}\n${spoken}` : spoken))} onSend={(spoken) => void send(text ? `${text}\n${spoken}` : spoken)} disabled={sending}>
+          <VoiceButton className="diet-tool" dictation={dictation} disabled={sending}>
             <Mic size={20} />
           </VoiceButton>
-          <button className="diet-send" onClick={() => void send()} disabled={sending || (!text.trim() && !photos.length)} aria-label="发送">
+          {dictation.overlay}
+          <button className="diet-send" onClick={() => void send()} disabled={sending || dictation.busy || (!text.trim() && !photos.length)} aria-label="发送">
             {sending ? <span className="pa-btn-spin" /> : <Send size={18} />}
           </button>
         </div>

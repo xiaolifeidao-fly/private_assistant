@@ -114,7 +114,7 @@ export class VoiceRecorder {
 }
 
 /** 降采样到 16kHz、16 位单声道 WAV：一分钟约 1.9MB。 */
-function encodeWAV(chunks: Float32Array[], sourceRate: number): Blob {
+export function encodeWAV(chunks: Float32Array[], sourceRate: number): Blob {
   const targetRate = 16000;
   const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
   const merged = new Float32Array(total);

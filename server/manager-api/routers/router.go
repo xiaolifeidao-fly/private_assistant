@@ -10,6 +10,7 @@ import (
 	"manager-api/pkg/auth"
 	"manager-api/pkg/bots"
 	"manager-api/pkg/conversations"
+	"manager-api/pkg/diet"
 	"manager-api/pkg/family"
 	"manager-api/pkg/insights"
 	"manager-api/pkg/memories"
@@ -55,6 +56,7 @@ func New(services *wire.Services) http.Handler {
 		speech.New(services.LLM),
 		conversations.New(services.Chat),
 		reminders.New(services.Reminder),
+		diet.New(services.Diet),
 	} {
 		handler.RegisterHandler(protected)
 	}

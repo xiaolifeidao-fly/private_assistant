@@ -12,12 +12,12 @@ import { ConversationDrawer } from "@/components/conversation-drawer";
 import { MemoryPopup } from "@/components/memory-popup";
 import { NoteSheet } from "@/components/note-sheet";
 import { PhotoStrip, PickedPhotos } from "@/components/photos";
-import { VoiceButton } from "@/components/voice-input";
+import { useDictation, VoiceButton } from "@/components/voice-input";
+import { isSendKey } from "@/lib/keys";
 import { RichText } from "@/components/rich-text";
 import { Avatar, NavBar } from "@/components/ui";
 import { api, postForm, streamMessage } from "@/lib/api";
 import { compressImage } from "@/lib/image";
-import { canRecord } from "@/lib/recorder";
 import { useOnResume } from "@/lib/events";
 import { personLabel, usePersons } from "@/lib/family";
 import { botTone } from "@/lib/tone";
@@ -263,11 +263,12 @@ function Chat() {
     element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
   };
 
-  // 没打字时右边的大按钮是麦克风（说话最省事），打了字变成发送
-  const [voiceOk, setVoiceOk] = useState(false);
-  useEffect(() => setVoiceOk(canRecord()), []);
+  // 说的话边识别边写进输入框，说完可以改了再发
+  const dictation = useDictation({ value: draft, onChange: setDraft, disabled: sending });
+  // 没打字时右边的大按钮是麦克风（说话最省事），打了字变成发送；说话期间不换，免得按钮在手指下跳
+  const bigVoice = useRef(true);
+  if (!dictation.busy) bigVoice.current = !draft.trim() && !photos.length;
 
-  // spoken 是语音识别出的文字（「直接发送」时不经过输入框）
   const send = async (spoken?: string) => {
     const text = (spoken ?? draft).trim();
     const picked = photos;
@@ -416,6 +417,12 @@ function Chat() {
   };
 
   const onDraftKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isSendKey(event)) {
+      event.preventDefault();
+      setMention(null);
+      if (!dictation.busy) void send();
+      return;
+    }
     if (!commandList.length || event.nativeEvent.isComposing) return;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
@@ -541,7 +548,7 @@ function Chat() {
             return list.filter((_, i) => i !== index);
           })}
         />
-        <div className="chat-input" data-attach={canAttach}>
+        <div className="chat-input" data-attach={canAttach} {...dictation.holdProps}>
           {canAttach && (
             <label className="chat-attach" aria-label="拍照或选照片">
               <Camera size={20} strokeWidth={1.9} />
@@ -559,7 +566,7 @@ function Chat() {
               photos.length ? (
                 bot?.kind === "persona" ? "想跟 TA 说说这张照片什么…"
                   : bot?.botKey === "remind" ? "要提醒什么？照片里的时间也会帮你看"
-                  : bot?.botKey === "recall" ? "说说这是什么、干什么用、放在哪（可以点键盘上的🎤说）"
+                  : bot?.botKey === "recall" ? "说说这是什么、干什么用、放在哪（按住这里就能说）"
                   : "想问这张照片什么，或者直接发"
               )
                 : bot?.kind === "persona" ? "想对 TA 说什么…"
@@ -567,26 +574,17 @@ function Chat() {
                 : bot?.botKey === "remind" ? "说要做的事和时间，比如「明晚 8 点给女儿洗澡」"
                 : "说点什么，输入 @ 选「记一下」等指令"
             }
+            readOnly={dictation.busy}
             rows={1}
             autoSize={{ minRows: 1, maxRows: 6 }}
           />
-          {voiceOk && !sending && !draft.trim() && !photos.length ? (
-            <VoiceButton
-              className="chat-send chat-voice"
-              onText={(text) => setDraft((current) => (current ? `${current}${text}` : text))}
-              onSend={(text) => void send(text)}
-            />
+          {dictation.supported && !sending && bigVoice.current ? (
+            <VoiceButton className="chat-send chat-voice" dictation={dictation} />
           ) : (
             <>
-              {voiceOk && !photos.length && (
-                // 已经写了开头（比如「记一下：」），接着用说的
-                <VoiceButton
-                  disabled={sending}
-                  onText={(text) => setDraft((current) => (current ? `${current}${text}` : text))}
-                  onSend={(text) => void send(`${draft.trim()}${text}`)}
-                />
-              )}
-              <button className="chat-send" disabled={(!draft.trim() && !photos.length) || sending} onClick={() => void send()} aria-label="发送">
+              {/* 已经写了开头（比如「记一下：」）或选了照片，接着用说的 */}
+              <VoiceButton dictation={dictation} disabled={sending} />
+              <button className="chat-send" disabled={(!draft.trim() && !photos.length) || sending || dictation.busy} onClick={() => void send()} aria-label="发送">
                 {sending ? <span className="pa-btn-spin" /> : <ArrowUp size={19} strokeWidth={2.6} />}
               </button>
             </>
@@ -594,6 +592,7 @@ function Chat() {
         </div>
       </div>
 
+      {dictation.overlay}
       <MemoryPopup memoryKey={memoryKey} onClose={() => setMemoryKey(null)} />
       <ConversationDrawer open={drawer} onClose={() => setDrawer(false)} activeKey={key} showHome />
       <NoteSheet note={openNote} onClose={() => setOpenNote(null)} onChanged={() => {}} onMemory={(key) => { setOpenNote(null); setMemoryKey(key); }} />

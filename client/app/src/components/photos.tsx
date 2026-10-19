@@ -56,7 +56,7 @@ export function PhotoStrip({ photos, size = "md", align = "start" }: { photos: P
           {photo.caption && <figcaption>{photo.caption}</figcaption>}
         </figure>
       ))}
-      <ImageViewer.Multi images={loaded} visible={preview !== null} defaultIndex={preview ?? 0} onClose={() => setPreview(null)} />
+      <ImageViewer.Multi getContainer={() => document.body} images={loaded} visible={preview !== null} defaultIndex={preview ?? 0} onClose={() => setPreview(null)} />
       <style jsx global>{`
         .photo-strip { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin-top: 10px; }
         .photo-strip::-webkit-scrollbar { display: none; }
@@ -102,7 +102,7 @@ export function PickedPhotos({ urls, onRemove }: { urls: string[]; onRemove: (in
           <button type="button" aria-label="移除" onClick={() => onRemove(index)}>×</button>
         </div>
       ))}
-      <ImageViewer.Multi images={urls} visible={preview !== null} defaultIndex={preview ?? 0} onClose={() => setPreview(null)} />
+      <ImageViewer.Multi getContainer={() => document.body} images={urls} visible={preview !== null} defaultIndex={preview ?? 0} onClose={() => setPreview(null)} />
       <style jsx global>{`
         .picked-photos { display: flex; gap: 8px; overflow-x: auto; padding: 2px 4px 8px; scrollbar-width: none; }
         .picked-photos::-webkit-scrollbar { display: none; }

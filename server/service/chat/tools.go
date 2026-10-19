@@ -183,11 +183,13 @@ func toolSpecs() map[string]toolSpec {
 			definition: llm.Tool{
 				Name: bot.ToolDietOverview,
 				Description: "查孩子的饮食：爸爸妈妈排的计划，和每天实际吃了什么、吃了多少（主要是奶奶记的）。" +
-					"问「她今天/这周吃了什么」「有没有按计划吃」「最近青菜吃得怎么样」时用。",
+					"问「她今天/这周吃了什么」「有没有按计划吃」「最近青菜吃得怎么样」时用 from/days；" +
+					"问「明天/周三该吃什么」「今晚给她做点啥」时填 for_date，一次拿到那天已排的计划、最近两周实际吃了什么和最近一次每周对照的建议。",
 				Properties: map[string]any{
-					"from":  map[string]any{"type": "string", "description": "从哪天开始 YYYY-MM-DD；不填就是往前数 days 天到今天"},
-					"days":  map[string]any{"type": "integer", "minimum": 1, "maximum": 31, "description": "查几天，默认 7"},
-					"child": map[string]any{"type": "string", "description": "哪个孩子的人物 key，默认 daughter"},
+					"for_date": map[string]any{"type": "string", "description": "要出主意的那天 YYYY-MM-DD（今天或以后）；填了就忽略 from/days"},
+					"from":     map[string]any{"type": "string", "description": "从哪天开始 YYYY-MM-DD；不填就是往前数 days 天到今天"},
+					"days":     map[string]any{"type": "integer", "minimum": 1, "maximum": 31, "description": "查几天，默认 7"},
+					"child":    map[string]any{"type": "string", "description": "哪个孩子的人物 key，默认 daughter"},
 				},
 			},
 			run: runDietOverview,
@@ -679,12 +681,16 @@ func runDietOverview(ctx context.Context, s *Service, scope toolScope, input jso
 		return "", errors.New("饮食记录没有开")
 	}
 	var args struct {
-		From  string `json:"from"`
-		Days  int    `json:"days"`
-		Child string `json:"child"`
+		ForDate string `json:"for_date"`
+		From    string `json:"from"`
+		Days    int    `json:"days"`
+		Child   string `json:"child"`
 	}
 	if err := decodeInput(input, &args); err != nil {
 		return "", err
+	}
+	if strings.TrimSpace(args.ForDate) != "" {
+		return s.diet.AdviceContext(ctx, scope.familyKey, args.Child, args.ForDate)
 	}
 	if args.Days <= 0 || args.Days > 31 {
 		args.Days = 7

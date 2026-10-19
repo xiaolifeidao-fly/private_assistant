@@ -33,7 +33,7 @@ export function DietPhotos({ record, size = 56 }: { record: DietRecord; size?: n
         <img key={url} src={url} alt="" onClick={(event) => { event.stopPropagation(); setPreview(index); }}
           style={{ width: size, height: size, borderRadius: 10, objectFit: "cover", background: "var(--pa-fill)" }} />
       ))}
-      <ImageViewer.Multi images={urls} visible={preview !== null} defaultIndex={preview ?? 0} onClose={() => setPreview(null)} />
+      <ImageViewer.Multi getContainer={() => document.body} images={urls} visible={preview !== null} defaultIndex={preview ?? 0} onClose={() => setPreview(null)} />
     </div>
   );
 }

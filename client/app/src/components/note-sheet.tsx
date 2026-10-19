@@ -125,7 +125,7 @@ export function NoteSheet({ note: current, onClose, onChanged, onMemory }: { not
                   <img key={url} src={url} alt="" onClick={() => setPreview(index)} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 12, cursor: "pointer" }} />
                 ))}
               </div>
-              <ImageViewer.Multi images={imageUrls} visible={preview !== null} defaultIndex={preview ?? 0} onClose={() => setPreview(null)} />
+              <ImageViewer.Multi getContainer={() => document.body} images={imageUrls} visible={preview !== null} defaultIndex={preview ?? 0} onClose={() => setPreview(null)} />
             </Section>
           )}
 

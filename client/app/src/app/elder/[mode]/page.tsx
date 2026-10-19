@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Toast } from "antd-mobile";
 import { Camera, ChevronLeft, Keyboard, Mic, Send, Volume2, VolumeX, X } from "lucide-react";
 import { HoldToTalk } from "@/components/elder/hold-to-talk";
+import { useDictation } from "@/components/voice-input";
 import { PhotoStrip } from "@/components/photos";
 import { RichText } from "@/components/rich-text";
 import { api, postForm, streamMessage } from "@/lib/api";
@@ -13,6 +14,7 @@ import { compressImage } from "@/lib/image";
 import { canRecord } from "@/lib/recorder";
 import { autoRead, canSpeak, setAutoRead, speak, stopSpeaking } from "@/lib/speak";
 import type { ChatMessage, Note } from "@/lib/types";
+import { isSendKey } from "@/lib/keys";
 
 interface StreamEvent {
   type: "user_message" | "status" | "delta" | "assistant_message" | "tool_message" | "notice" | "error" | "done";
@@ -58,6 +60,8 @@ export default function ElderModePage() {
   const [pendingText, setPendingText] = useState("");
   const [typing, setTyping] = useState(false);
   const [draft, setDraft] = useState("");
+  // 打字模式下按住输入框也能说，字会出现在框里
+  const dictation = useDictation({ value: draft, onChange: setDraft, disabled: sending });
   const [voice, setVoice] = useState(false);
   const [reading, setReading] = useState(false);
   const [readingKey, setReadingKey] = useState("");
@@ -298,6 +302,9 @@ export default function ElderModePage() {
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="在这里打字"
+            onKeyDown={(event) => { if (isSendKey(event) && !dictation.busy) { event.preventDefault(); void send(draft); } }}
+            readOnly={dictation.busy}
+            {...dictation.holdProps}
             rows={2}
             enterKeyHint="send"
           />
@@ -310,7 +317,7 @@ export default function ElderModePage() {
             </button>
           )}
           {typing ? (
-            <button className="el-send" onClick={() => void send(draft)} disabled={sending || (!draft.trim() && !photos.length)}>
+            <button className="el-send" onClick={() => void send(draft)} disabled={sending || dictation.busy || (!draft.trim() && !photos.length)}>
               <Send size={28} strokeWidth={2.3} />
               <span>发送</span>
             </button>
@@ -328,6 +335,7 @@ export default function ElderModePage() {
           <button className="el-photo-only" onClick={() => void send("")} disabled={sending}>不说了，直接发照片</button>
         )}
       </footer>
+      {dictation.overlay}
       <input
         ref={fileRef}
         type="file"
