@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 
 import { useParams, useRouter } from "next/navigation";
 import { Dialog, TextArea, Toast } from "antd-mobile";
 import type { TextAreaRef } from "antd-mobile";
-import { ArrowDown, ArrowUp, Camera, Check, Copy, Info, LifeBuoy, PanelLeft, Sparkles, SquarePen, ThumbsDown, ThumbsUp, TriangleAlert, UserRoundPen } from "lucide-react";
+import { ArrowDown, ArrowUp, AtSign, Camera, Check, Copy, Info, LifeBuoy, PanelLeft, Sparkles, SquarePen, ThumbsDown, ThumbsUp, TriangleAlert, UserRoundPen, X } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
 import { CommandMenu, commandsFor, filterCommands, findMention } from "@/components/command-menu";
 import type { Command } from "@/components/command-menu";
@@ -135,6 +135,8 @@ function Chat() {
   const inputRef = useRef<TextAreaRef>(null);
   // 输入「@」弹出快捷指令（记一下、提醒我……），选中后替换掉「@xx」
   const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
+  // 选中的指令单独显示成一块标签放在输入框最前面，发送时拼在话前头；光标在最前时按一下回退整块删掉
+  const [chip, setChip] = useState<{ label: string; text: string } | null>(null);
   const [activeCommand, setActiveCommand] = useState(0);
   // 用户往上翻看历史时不要被流式输出拽回底部
   const stickRef = useRef(true);
@@ -217,11 +219,14 @@ function Chat() {
     const prompt = new URLSearchParams(window.location.search).get("q");
     if (prompt) {
       setDraft(prompt);
+      setChip(null);
       window.history.replaceState(window.history.state, "", window.location.pathname);
       return;
     }
     try {
       setDraft(localStorage.getItem(`pa_draft_${key}`) || "");
+      const saved = localStorage.getItem(`pa_draft_cmd_${key}`);
+      setChip(saved ? JSON.parse(saved) : null);
     } catch {
       /* ignore */
     }
@@ -238,10 +243,12 @@ function Chat() {
     try {
       if (draft) localStorage.setItem(`pa_draft_${key}`, draft);
       else localStorage.removeItem(`pa_draft_${key}`);
+      if (chip) localStorage.setItem(`pa_draft_cmd_${key}`, JSON.stringify(chip));
+      else localStorage.removeItem(`pa_draft_cmd_${key}`);
     } catch {
       /* ignore */
     }
-  }, [draft, key]);
+  }, [draft, chip, key]);
 
   useLayoutEffect(() => {
     const element = scrollRef.current;
@@ -269,15 +276,18 @@ function Chat() {
   const inputHistory = useInputHistory(draft, setDraft);
   // 没打字时右边的大按钮是麦克风（说话最省事），打了字变成发送；说话期间不换，免得按钮在手指下跳
   const bigVoice = useRef(true);
-  if (!dictation.busy) bigVoice.current = !draft.trim() && !photos.length;
+  if (!dictation.busy) bigVoice.current = !draft.trim() && !chip && !photos.length;
 
   const send = async (spoken?: string) => {
-    const text = (spoken ?? draft).trim();
+    const typed = spoken ?? draft;
+    const command = chip;
+    const text = ((command?.text ?? "") + typed).trim();
     const picked = photos;
     if ((!text && !picked.length) || sending) return;
     setSending(true);
     inputHistory.remember(text);
     setDraft("");
+    setChip(null);
     setPhotos([]);
     setStreamText("");
     setStatusText("");
@@ -328,7 +338,11 @@ function Chat() {
     } catch (error) {
       Toast.show({ content: (error as Error).message });
       // 服务端还没收到这句话（断网、登录失效等），把原文放回输入框，免得重打；照片没传上去的也放回去
-      if (!accepted) setDraft((current) => (spoken && current ? `${current}${text}` : current || text));
+      if (!accepted) {
+        // 指令标签一起放回去；这期间又选了别的指令或打了字就不覆盖
+        setChip((current) => current ?? command);
+        setDraft((current) => (spoken && current ? `${current}${typed.trim()}` : current || typed.trim()));
+      }
       if (!noteKey && picked.length) setPhotos((list) => (list.length ? list : picked));
     } finally {
       setSending(false);
@@ -407,9 +421,10 @@ function Chat() {
   const pickCommand = (command: Command) => {
     if (!mention) return;
     const end = mention.start + 1 + mention.query.length;
-    const next = draft.slice(0, mention.start) + command.text + draft.slice(end);
-    const caret = mention.start + command.text.length;
+    const next = draft.slice(0, mention.start) + draft.slice(end);
+    const caret = mention.start;
     setDraft(next);
+    setChip({ label: command.label, text: command.text });
     setMention(null);
     requestAnimationFrame(() => {
       const element = inputRef.current?.nativeElement;
@@ -424,6 +439,13 @@ function Chat() {
       event.preventDefault();
       setMention(null);
       if (!dictation.busy) void send();
+      return;
+    }
+    // 光标在最前面（或者没打字）时按回退：整块删掉指令标签，不用一个字一个字删
+    const element = event.currentTarget;
+    if (chip && event.key === "Backspace" && !event.nativeEvent.isComposing && element.selectionStart === 0 && element.selectionEnd === 0) {
+      event.preventDefault();
+      setChip(null);
       return;
     }
     if (!commandList.length) {
@@ -541,8 +563,8 @@ function Chat() {
         <button className="chat-to-bottom" data-show={farFromBottom} onClick={toBottom} aria-label="回到最新">
           <ArrowDown size={18} strokeWidth={2.2} />
         </button>
-        {canRehearse && !draft && !empty && (
-          <button className="chat-rehearse" onClick={() => setDraft("我打算这么跟你说：")}>
+        {canRehearse && !draft && !chip && !empty && (
+          <button className="chat-rehearse" onClick={() => setChip({ label: "预演一句话", text: "我打算这么跟你说：" })}>
             <Sparkles size={13} strokeWidth={2.2} />
             预演一句我想说的话
           </button>
@@ -562,6 +584,19 @@ function Chat() {
               <input type="file" accept="image/*" multiple hidden onChange={(event) => { void pickPhotos(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
             </label>
           )}
+          {chip && (
+            <button
+              className="chat-chip"
+              // 不抢焦点，键盘保持弹着
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => { setChip(null); inputRef.current?.focus(); }}
+              aria-label={`去掉指令「${chip.label}」`}
+            >
+              <AtSign size={12} strokeWidth={2.6} />
+              {chip.label}
+              <X size={12} strokeWidth={2.6} className="chat-chip-x" />
+            </button>
+          )}
           <TextArea
             ref={inputRef}
             value={draft}
@@ -570,7 +605,8 @@ function Chat() {
             // 晚一点关：手机上点菜单项时输入框会先失焦
             onBlur={() => setTimeout(() => setMention(null), 200)}
             placeholder={
-              photos.length ? (
+              chip ? (chip.text.endsWith("：") ? "接着说…（按回退可以去掉前面的指令）" : "可以直接发，也可以补一句")
+              : photos.length ? (
                 bot?.kind === "persona" ? "想跟 TA 说说这张照片什么…"
                   : bot?.botKey === "remind" ? "要提醒什么？照片里的时间也会帮你看"
                   : bot?.botKey === "recall" ? "说说这是什么、干什么用、放在哪（按住这里就能说）"
@@ -591,7 +627,7 @@ function Chat() {
             <>
               {/* 已经写了开头（比如「记一下：」）或选了照片，接着用说的 */}
               <VoiceButton dictation={dictation} disabled={sending} />
-              <button className="chat-send" disabled={(!draft.trim() && !photos.length) || sending || dictation.busy} onClick={() => void send()} aria-label="发送">
+              <button className="chat-send" disabled={(!draft.trim() && !chip && !photos.length) || sending || dictation.busy} onClick={() => void send()} aria-label="发送">
                 {sending ? <span className="pa-btn-spin" /> : <ArrowUp size={19} strokeWidth={2.6} />}
               </button>
             </>
@@ -793,6 +829,27 @@ function Chat() {
         .chat-user-photos { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 82%; }
         .chat-user-photos img { width: 76px; height: 76px; object-fit: cover; border-radius: 14px; opacity: 0.85; }
         .chat-input .adm-text-area { padding: 7px 0; }
+        .chat-chip {
+          flex-shrink: 0;
+          align-self: flex-end;
+          margin-bottom: 5px;
+          height: 28px;
+          padding: 0 7px 0 8px;
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          border: 0;
+          border-radius: 14px;
+          background: var(--pa-accent);
+          color: var(--pa-accent-ink);
+          font-size: 13.5px;
+          font-weight: 650;
+          white-space: nowrap;
+          cursor: pointer;
+          animation: pa-enter 0.18s var(--pa-ease) both;
+        }
+        .chat-chip-x { opacity: 0.75; margin-left: 1px; }
+        .chat-chip:active { opacity: 0.8; }
         .chat-input .adm-text-area-element { line-height: 1.5; color: var(--pa-text); }
         .chat-input .adm-text-area-element::placeholder { color: var(--pa-text-3); }
         .chat-send {
