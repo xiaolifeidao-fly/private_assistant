@@ -80,3 +80,17 @@ func TestFormatOverview(t *testing.T) {
 		}
 	}
 }
+
+func TestPlanHeaderHistory(t *testing.T) {
+	today := time.Date(2026, 10, 19, 0, 0, 0, 0, shanghai)
+	turns := []PlanTurn{{Role: "parent", Text: "每晚吃牛肉、三文鱼、虾、肠，依次循环"}, {Role: "assistant", Text: "排到了 25 号"}}
+	header := planHeader(today, today, 7, "宝宝", "", "接着轮", 0, Overview{}, Overview{}, turns)
+	for _, want := range []string{"前面的对话：", "家长：每晚吃牛肉", "你：排到了 25 号", "说：\n接着轮"} {
+		if !strings.Contains(header, want) {
+			t.Fatalf("header 缺少 %q:\n%s", want, header)
+		}
+	}
+	if strings.Contains(planHeader(today, today, 7, "宝宝", "", "x", 0, Overview{}, Overview{}, nil), "前面的对话") {
+		t.Fatal("没有对话时不该出现「前面的对话」")
+	}
+}

@@ -44,9 +44,16 @@ export function captureRecord(text: string, photos: Blob[], child = ""): Promise
   return postForm<DietCaptureResult>("/diet/records/capture", form);
 }
 
-/** 计划：说一句 / 拍张食谱，模型改计划。from 是正在看的那天。 */
-export function capturePlan(text: string, photos: Blob[], from: string, days = 7, child = ""): Promise<DietPlanCaptureResult> {
+/** 改计划对话里的一轮；连着说时把前面几轮一起带上。 */
+export interface PlanTurn {
+  role: "parent" | "assistant";
+  text: string;
+}
+
+/** 计划：说一句 / 拍张食谱，模型改计划。from 是正在看的那天，history 是这次对话前面几轮。 */
+export function capturePlan(text: string, photos: Blob[], from: string, days = 7, child = "", history: PlanTurn[] = []): Promise<DietPlanCaptureResult> {
   const form = new FormData();
+  if (history.length) form.set("history", JSON.stringify(history.slice(-12)));
   form.set("text", text);
   form.set("from", from);
   form.set("days", String(days));

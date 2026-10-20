@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import { Dialog, TextArea, Toast } from "antd-mobile";
-import { Camera, ChevronLeft, ChevronRight, ClipboardCheck, Copy, Mic, Plus, Send, Sparkles } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, ClipboardCheck, Copy, Mic, Plus, Send, Sparkles, X } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
 import { DietPhotos, PlanSheet, RecordSheet } from "@/components/diet";
 import { PickedPhotos } from "@/components/photos";
@@ -13,7 +13,7 @@ import { Button, LoadError, Loading, NavBar, Pill, Segmented, Tip } from "@/comp
 import { useDictation, VoiceButton } from "@/components/voice-input";
 import { isSendKey } from "@/lib/keys";
 import { api } from "@/lib/api";
-import { amountLabel, capturePlan, captureRecord, dietOverview, mealLabels, today } from "@/lib/diet";
+import { amountLabel, capturePlan, captureRecord, dietOverview, mealLabels, today, type PlanTurn } from "@/lib/diet";
 import { compressImage } from "@/lib/image";
 import { useMe } from "@/lib/role";
 import type { DietOverview, DietPlan, DietRecord, DietReview } from "@/lib/types";
@@ -39,7 +39,13 @@ function DietBoard() {
   const [photos, setPhotos] = useState<{ blob: Blob; url: string }[]>([]);
   const [sending, setSending] = useState(false);
   const dictation = useDictation({ value: text, onChange: setText, disabled: sending });
-  const [reply, setReply] = useState("");
+  // 两边各自一段对话；改计划时把前面几轮带给模型，能接着说「再把周五也这样」
+  const [threads, setThreads] = useState<Record<"record" | "plan", PlanTurn[]>>({ record: [], plan: [] });
+  const thread = threads[mode];
+  const threadEnd = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    threadEnd.current?.scrollIntoView({ block: "end" });
+  }, [thread.length, sending]);
   const [review, setReview] = useState<DietReview | null>(null);
   const [reviewing, setReviewing] = useState(false);
 
@@ -102,11 +108,13 @@ function DietBoard() {
     const spoken = raw.trim();
     if (sending || (!spoken && !photos.length)) return;
     setSending(true);
-    setReply("");
+    const asked: PlanTurn = { role: "parent", text: spoken || `（拍了 ${photos.length} 张照片）` };
+    const history = threads[mode];
+    setThreads((all) => ({ ...all, [mode]: [...all[mode], asked] }));
     try {
       const blobs = photos.map((photo) => photo.blob);
-      const result = mode === "plan" ? await capturePlan(spoken, blobs, day, 7) : await captureRecord(spoken, blobs);
-      setReply(result.reply);
+      const result = mode === "plan" ? await capturePlan(spoken, blobs, day, 7, "", history) : await captureRecord(spoken, blobs);
+      setThreads((all) => ({ ...all, [mode]: [...all[mode], { role: "assistant", text: result.reply }] }));
       setText("");
       photos.forEach((photo) => URL.revokeObjectURL(photo.url));
       setPhotos([]);
@@ -117,6 +125,8 @@ function DietBoard() {
       }
       await load();
     } catch (err) {
+      // 没发成：撤回这一句，话留在输入框里
+      setThreads((all) => ({ ...all, [mode]: all[mode].filter((turn) => turn !== asked) }));
       Toast.show({ content: (err as Error).message });
     } finally {
       setSending(false);
@@ -248,7 +258,18 @@ function DietBoard() {
       </div>
 
       <footer className="diet-composer">
-        {reply && <div className="diet-reply">{reply}</div>}
+        {thread.length > 0 && (
+          <div className="diet-thread">
+            <button className="diet-thread-clear" onClick={() => setThreads((all) => ({ ...all, [mode]: [] }))} aria-label="重新开始">
+              <X size={13} /> 重新开始
+            </button>
+            {thread.map((turn, index) => (
+              <div key={index} className="diet-bubble" data-role={turn.role}>{turn.text}</div>
+            ))}
+            {sending && <div className="diet-bubble" data-role="assistant"><span className="pa-btn-spin" /></div>}
+            <div ref={threadEnd} />
+          </div>
+        )}
         {canPlan && (
           <Segmented options={[{ value: "record", label: "记实际" }, { value: "plan", label: "改计划" }]} value={mode} onChange={(value) => setMode(value as "record" | "plan")} />
         )}
@@ -327,7 +348,14 @@ function DietBoard() {
           background: color-mix(in srgb, var(--pa-bg) 92%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
           border-top: 0.5px solid var(--pa-line); display: flex; flex-direction: column; gap: 8px;
         }
-        .diet-reply { font-size: 14px; line-height: 1.55; padding: 10px 12px; border-radius: 12px; background: var(--pa-surface); border: 0.5px solid var(--pa-line); }
+        .diet-thread { max-height: 34vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; position: relative; }
+        .diet-thread-clear {
+          appearance: none; align-self: center; border: 0; background: transparent; color: var(--pa-text-3); font-size: 12px;
+          display: inline-flex; align-items: center; gap: 2px; padding: 0 0 2px; cursor: pointer;
+        }
+        .diet-bubble { max-width: 86%; font-size: 14px; line-height: 1.55; padding: 8px 12px; border-radius: 14px; white-space: pre-wrap; word-break: break-word; }
+        .diet-bubble[data-role="assistant"] { align-self: flex-start; background: var(--pa-surface); border: 0.5px solid var(--pa-line); }
+        .diet-bubble[data-role="parent"] { align-self: flex-end; background: var(--pa-accent); color: var(--pa-accent-ink); }
         .diet-input { display: flex; align-items: flex-end; gap: 8px; }
         .diet-text { flex: 1; min-width: 0; padding-top: 8px; padding-bottom: 8px; }
         .diet-tool, .diet-send {

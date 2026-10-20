@@ -25,7 +25,17 @@ type PlanCaptureInput struct {
 	// From / Days 当前在看的日子，「这周」「明天」按它和今天理解；默认今天起 7 天
 	From string
 	Days int
+	// History 这次对话前面几轮（连着说「再把周五也改成这样」「对，就这么排」时用），旧的在前
+	History []PlanTurn
 }
+
+// PlanTurn 对话里的一轮：parent 是家长说的，assistant 是助理回的。
+type PlanTurn struct {
+	Role string `json:"role"`
+	Text string `json:"text"`
+}
+
+const maxPlanTurns = 12
 
 type PlanCaptureResult struct {
 	// Changed 改过的餐（清掉的也在里面，foods 和 note 为空）
@@ -83,9 +93,13 @@ const planSystem = `你帮爸爸妈妈安排孩子的饮食计划。奶奶照着
 - foods 写改完以后这一餐的完整内容（原来有、家长没说去掉的要保留）。
 - 「每天」「这周」「下周」「工作日」这类说法展开成具体日期，按"今天"和"正在看的日子"理解。
 - 全天的要求（一天一杯奶、不吃糖、多喝水）放在 meal=day。
+- 家长可以只定一部分（比如只定晚饭的荤菜、只定水果、只定主食），就只写这一部分，别的不要替家长补。已有内容里同一类的（原来的荤菜）换掉，其他的保留。
+- 「依次循环」「轮着来」「换着吃」：按日期顺序轮流分到每一天，从正在看的日子（早于今天就从今天）开始。已有计划里能看出上一轮排到哪了，就接着往下轮。没说排到哪天，就排正在看的这几天，summary 里说排到了哪天、以后说「接着轮」就能往后排。
 - 家长让你帮忙排菜时，参考孩子年龄、最近实际吃的情况（吃得少的、挑的、重复太多的），荤素搭配，做法家常，别排太复杂的菜。
 - 照片是幼儿园食谱时，幼儿园管的那几餐（通常是午饭、下午加餐）照着写，note 写「幼儿园」，家里的餐另外按家长的话排。
 - 家长说的不是安排饮食（问问题、说别的事），返回空的 changes，summary 里简短回答或说明。
+- 拿不准家长要改哪几天、哪一餐，又没法合理推断时，返回空的 changes，summary 里简短问一句；家长下一句会接着回答。
+- 有「前面的对话」时，这次的话接着前面理解（「也」「这样」「再加一个」「对」指的是前面说的）。前面已经改好的已经在「已有的计划」里了，不要重复改。
 - 不要编造家长没说、照片里也没有的要求。`
 
 // CapturePlan 用一句话 / 一张照片改计划。只有能改计划的账号能用。
@@ -128,7 +142,7 @@ func (s *Service) CapturePlan(ctx context.Context, familyKey string, input PlanC
 	}
 
 	var parsed planChanges
-	header := planHeader(today, from, days, person.RoleLabel, ageOf(person.Birthday, today), text, len(blocks), current, history)
+	header := planHeader(today, from, days, person.RoleLabel, ageOf(person.Birthday, today), text, len(blocks), current, history, input.History)
 	if err := s.askJSON(ctx, taskPlan, planSystem, planSchema(), blocks, header, keys.New("dplanc"), &parsed); err != nil {
 		return PlanCaptureResult{}, fmt.Errorf("没整理出来：%w", err)
 	}
@@ -203,7 +217,7 @@ func ageOf(birthday string, today time.Time) string {
 	return fmt.Sprintf("%d 岁 %d 个月", months/12, months%12)
 }
 
-func planHeader(today, from time.Time, days int, childLabel, age, text string, photoCount int, current, history Overview) string {
+func planHeader(today, from time.Time, days int, childLabel, age, text string, photoCount int, current, history Overview, turns []PlanTurn) string {
 	var builder strings.Builder
 	weekdays := []string{"日", "一", "二", "三", "四", "五", "六"}
 	day := func(date time.Time) string {
@@ -238,6 +252,19 @@ func planHeader(today, from time.Time, days int, childLabel, age, text string, p
 			fmt.Fprintf(&builder, "（%s）", record.Note)
 		}
 		builder.WriteString("\n")
+	}
+	if len(turns) > maxPlanTurns {
+		turns = turns[len(turns)-maxPlanTurns:]
+	}
+	if len(turns) > 0 {
+		builder.WriteString("\n前面的对话：\n")
+		for _, turn := range turns {
+			who := "家长"
+			if turn.Role == "assistant" {
+				who = "你"
+			}
+			fmt.Fprintf(&builder, "%s：%s\n", who, clip(turn.Text))
+		}
 	}
 	builder.WriteString("\n家长这次")
 	if photoCount > 0 {

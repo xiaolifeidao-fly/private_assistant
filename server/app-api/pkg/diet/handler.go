@@ -3,6 +3,7 @@
 package diet
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -69,16 +70,23 @@ func (h *Handler) copyPlans(c *gin.Context) {
 	httpx.JSON(c, gin.H{"count": count}, err)
 }
 
-// capturePlan 收 multipart：text、images、child、from、days。
+// capturePlan 收 multipart：text、images、child、from、days、history（前面几轮对话的 JSON 数组，可不传）。
 func (h *Handler) capturePlan(c *gin.Context) {
 	images, ok := readImages(c)
 	if !ok {
 		return
 	}
 	days, _ := strconv.Atoi(c.PostForm("days"))
+	var history []diet.PlanTurn
+	if raw := strings.TrimSpace(c.PostForm("history")); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &history); err != nil {
+			httpx.Fail(c, "history 格式不对")
+			return
+		}
+	}
 	family, who := actor(c)
 	result, err := h.diet.CapturePlan(c.Request.Context(), family, diet.PlanCaptureInput{
-		ChildKey: c.PostForm("child"), Text: c.PostForm("text"), Images: images, From: c.PostForm("from"), Days: days,
+		ChildKey: c.PostForm("child"), Text: c.PostForm("text"), Images: images, From: c.PostForm("from"), Days: days, History: history,
 	}, who)
 	httpx.JSON(c, result, err)
 }
