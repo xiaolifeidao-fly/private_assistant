@@ -113,6 +113,12 @@ export function recordDate(record: DietRecord) {
   return dayjs(record.eatenAt).format("YYYY-MM-DD");
 }
 
+/** 改计划对话里的一轮。 */
+export interface PlanTurn {
+  role: "parent" | "assistant";
+  text: string;
+}
+
 export const dietApi = {
   overview: (child: string, from: string, days = 7) => api.get<DietOverview>(`/diet${query({ child, from, days })}`),
   savePlan: (body: { childKey: string; date: string; meal: string; foods: string; note: string }) =>
@@ -123,9 +129,10 @@ export const dietApi = {
   deleteRecord: (key: string) => api.del(`/diet/records/${key}`),
   review: (child: string, date: string) => api.get<{ review: DietReview | null }>(`/diet/review${query({ child, date })}`),
   createReview: (childKey: string, date: string) => api.post<DietReview>("/diet/review", { childKey, date }),
-  /** 说一句 / 拍张食谱改计划；from、days 是正在看的那周。 */
-  capturePlan: (child: string, text: string, images: File[], from: string, days = 7) => {
+  /** 说一句 / 拍张食谱改计划；from、days 是正在看的那周，history 是这次对话前面几轮（连着说时用）。 */
+  capturePlan: (child: string, text: string, images: File[], from: string, days = 7, history: PlanTurn[] = []) => {
     const form = new FormData();
+    if (history.length) form.set("history", JSON.stringify(history.slice(-12)));
     form.set("child", child);
     form.set("text", text);
     form.set("from", from);

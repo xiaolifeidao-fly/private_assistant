@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import dayjs from "dayjs";
 import { App, Button, Input, Segmented, Upload } from "antd";
 import { ImagePlus, Send, Sparkles, X } from "lucide-react";
-import { amountOf, cellKey, DAY, dietApi, mealLabels, recordDate, weekdays } from "@/lib/diet";
+import { amountOf, cellKey, DAY, dietApi, mealLabels, recordDate, weekdays, type PlanTurn } from "@/lib/diet";
 import { VoiceInput } from "@/components/voice-input";
 
 type Mode = "plan" | "record";
@@ -63,7 +63,11 @@ export function DietAssistant({ child, from, onChanged }: { child: string; from:
     setSending(true);
     try {
       if (mode === "plan") {
-        const result = await dietApi.capturePlan(child, content, photos, from, 7);
+        // 前面几轮改计划的对话一起带上，能接着说「周五也这样」「对，就这么排」
+        const history: PlanTurn[] = messages
+          .filter((item) => item.mode === "plan" && !item.error)
+          .map((item) => ({ role: item.from === "me" ? "parent" : "assistant", text: item.text || `（拍了 ${item.photos ?? 0} 张照片）` }));
+        const result = await dietApi.capturePlan(child, content, photos, from, 7, history);
         push({
           from: "bot",
           mode,
@@ -105,6 +109,9 @@ export function DietAssistant({ child, from, onChanged }: { child: string; from:
     <div className="pa-panel diet-chat">
       <div className="pa-panel-head">
         <div className="pa-panel-title"><Sparkles size={16} color="var(--pa-accent)" />说一句，让模型改</div>
+        {messages.length > 0 && (
+          <Button type="text" size="small" style={{ marginLeft: "auto" }} disabled={sending} onClick={() => setMessages([])}>重新开始</Button>
+        )}
       </div>
       <div style={{ padding: "12px 16px 0" }}>
         <Segmented block value={mode} onChange={(value) => setMode(value as Mode)}

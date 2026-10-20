@@ -282,7 +282,20 @@ type ProviderError struct {
 }
 
 func (e *ProviderError) Error() string {
+	if e.Busy() {
+		return fmt.Sprintf("模型服务这会儿太忙了（%d），过一会儿再试一次", e.Status)
+	}
+	return e.Detail()
+}
+
+// Detail 带上提供商的原始返回，记调用日志用。
+func (e *ProviderError) Detail() string {
 	return fmt.Sprintf("模型服务返回 %d: %s", e.Status, e.Message)
+}
+
+// Busy 表示提供商限流或过载（429 / 503 / 529），等一等重试通常就好。
+func (e *ProviderError) Busy() bool {
+	return e.Status == http.StatusTooManyRequests || e.Status == http.StatusServiceUnavailable || e.Status == 529
 }
 
 // Normalize 把向量缩放到单位长度。

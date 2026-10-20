@@ -13,6 +13,7 @@ import { MemoryPopup } from "@/components/memory-popup";
 import { NoteSheet } from "@/components/note-sheet";
 import { PhotoStrip, PickedPhotos } from "@/components/photos";
 import { useDictation, VoiceButton } from "@/components/voice-input";
+import { useInputHistory } from "@/lib/input-history";
 import { isSendKey } from "@/lib/keys";
 import { RichText } from "@/components/rich-text";
 import { Avatar, NavBar } from "@/components/ui";
@@ -265,6 +266,7 @@ function Chat() {
 
   // 说的话边识别边写进输入框，说完可以改了再发
   const dictation = useDictation({ value: draft, onChange: setDraft, disabled: sending });
+  const inputHistory = useInputHistory(draft, setDraft);
   // 没打字时右边的大按钮是麦克风（说话最省事），打了字变成发送；说话期间不换，免得按钮在手指下跳
   const bigVoice = useRef(true);
   if (!dictation.busy) bigVoice.current = !draft.trim() && !photos.length;
@@ -274,6 +276,7 @@ function Chat() {
     const picked = photos;
     if ((!text && !picked.length) || sending) return;
     setSending(true);
+    inputHistory.remember(text);
     setDraft("");
     setPhotos([]);
     setStreamText("");
@@ -423,7 +426,11 @@ function Chat() {
       if (!dictation.busy) void send();
       return;
     }
-    if (!commandList.length || event.nativeEvent.isComposing) return;
+    if (!commandList.length) {
+      if (!dictation.busy) inputHistory.onKeyDown(event);
+      return;
+    }
+    if (event.nativeEvent.isComposing) return;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       const step = event.key === "ArrowDown" ? 1 : -1;

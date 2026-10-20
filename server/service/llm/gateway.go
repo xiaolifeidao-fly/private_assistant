@@ -34,7 +34,34 @@ func (g *Gateway) Chat(ctx context.Context, request Request, onDelta func(Delta)
 	return response, err
 }
 
+// busyRetryDelays 是提供商限流或过载时的等待间隔。SDK 自己会先快速重试两次，
+// 这里再多等两轮：MiniMax 高峰期的 529 往往要十几秒才缓过来。
+var busyRetryDelays = []time.Duration{5 * time.Second, 15 * time.Second}
+
 func (g *Gateway) call(ctx context.Context, route Route, request Request, onDelta func(Delta)) (Response, error) {
+	streamed := false
+	tracked := onDelta
+	if onDelta != nil {
+		tracked = func(delta Delta) { streamed = true; onDelta(delta) }
+	}
+	response, err := g.callOnce(ctx, route, request, tracked)
+	for _, delay := range busyRetryDelays {
+		var providerErr *ProviderError
+		// 已经往外推过内容就不重试，免得同一段话推两遍
+		if err == nil || streamed || !errors.As(err, &providerErr) || !providerErr.Busy() {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return response, err
+		case <-time.After(delay):
+		}
+		response, err = g.callOnce(ctx, route, request, tracked)
+	}
+	return response, err
+}
+
+func (g *Gateway) callOnce(ctx context.Context, route Route, request Request, onDelta func(Delta)) (Response, error) {
 	started := time.Now()
 	var response Response
 	var err error
@@ -168,7 +195,12 @@ func (g *Gateway) logCall(route Route, refKey string, response Response, callErr
 	}
 	if callErr != nil {
 		row.Status = "error"
-		row.Error = truncate(callErr.Error(), 1000)
+		detail := callErr.Error()
+		var providerErr *ProviderError
+		if errors.As(callErr, &providerErr) {
+			detail = providerErr.Detail()
+		}
+		row.Error = truncate(detail, 1000)
 	}
 	// 记账失败不影响主流程。
 	_ = g.db.Create(&row).Error

@@ -14,6 +14,7 @@ import { compressImage } from "@/lib/image";
 import { canRecord } from "@/lib/recorder";
 import { canSpeak, speak, stopSpeaking } from "@/lib/speak";
 import type { DietMeal, DietOverview, DietRecord } from "@/lib/types";
+import { useInputHistory } from "@/lib/input-history";
 import { isSendKey } from "@/lib/keys";
 
 const MAX_PHOTOS = 3;
@@ -33,6 +34,7 @@ export default function ElderDietPage() {
   const [draft, setDraft] = useState("");
   // 打字模式下按住输入框也能说，字会出现在框里
   const dictation = useDictation({ value: draft, onChange: setDraft, disabled: sending });
+  const inputHistory = useInputHistory(draft, setDraft);
   const [photos, setPhotos] = useState<{ blob: Blob; url: string }[]>([]);
   const [editing, setEditing] = useState<{ record?: DietRecord } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -60,16 +62,20 @@ export default function ElderDietPage() {
     stopSpeaking();
     setSending(true);
     setReply("");
+    // 发出去就清空输入框；没记成再放回来
+    inputHistory.remember(text);
+    setDraft("");
+    setPhotos([]);
     try {
       const result = await captureRecord(text, picked.map((photo) => photo.blob));
       picked.forEach((photo) => URL.revokeObjectURL(photo.url));
-      setPhotos([]);
-      setDraft("");
       setReply(result.reply);
       if (canSpeak()) speak(result.reply);
       await load();
     } catch (error) {
       Toast.show({ content: (error as Error).message });
+      setDraft((current) => current || text);
+      setPhotos((list) => (list.length ? list : picked));
     } finally {
       setSending(false);
     }
@@ -214,7 +220,10 @@ export default function ElderDietPage() {
         )}
         {typing && (
           <textarea className="el-textarea" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="比如：中午吃了半碗饭，青菜没吃" rows={2}
-            onKeyDown={(event) => { if (isSendKey(event) && !dictation.busy) { event.preventDefault(); void send(draft); } }}
+            onKeyDown={(event) => {
+              if (isSendKey(event) && !dictation.busy) { event.preventDefault(); void send(draft); return; }
+              if (!dictation.busy) inputHistory.onKeyDown(event);
+            }}
             readOnly={dictation.busy} {...dictation.holdProps} />
         )}
         <div className="el-input-row">

@@ -11,6 +11,7 @@ import { PickedPhotos } from "@/components/photos";
 import { RichText } from "@/components/rich-text";
 import { Button, LoadError, Loading, NavBar, Pill, Segmented, Tip } from "@/components/ui";
 import { useDictation, VoiceButton } from "@/components/voice-input";
+import { useInputHistory } from "@/lib/input-history";
 import { isSendKey } from "@/lib/keys";
 import { api } from "@/lib/api";
 import { amountLabel, capturePlan, captureRecord, dietOverview, mealLabels, today, type PlanTurn } from "@/lib/diet";
@@ -20,6 +21,18 @@ import type { DietOverview, DietPlan, DietRecord, DietReview } from "@/lib/types
 
 const MAX_PHOTOS = 4;
 const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+
+/** 发出去之后助理在做什么：接口不是流式的，按等了多久换一句提示，免得干等着以为卡住了。 */
+type Progress = { mode: "record" | "plan"; photos: number; startedAt: number; refreshing: boolean };
+
+function progressText(progress: Progress, seconds: number): string {
+  if (progress.refreshing) return progress.mode === "plan" ? "写好了，正在把这一周的计划刷新出来…" : "记好了，正在刷新这一天…";
+  const look = progress.photos ? "看照片" : "看你说的";
+  const steps: [number, string][] = progress.mode === "plan"
+    ? [[0, `收到，正在${look}…`], [4, "在排这一周的计划…"], [12, "改动有点多，正在一餐一餐写进去…"], [28, "快好了，再等一下…"], [50, "内容多会慢一些，还在写，别关页面哦…"]]
+    : [[0, `收到，正在${look}…`], [4, "在整理成每一餐吃了什么…"], [12, "快好了…"], [30, "还在整理，再等一下…"]];
+  return steps.filter(([at]) => seconds >= at).pop()![1];
+}
 
 export default function DietPage() {
   return <AuthGate><DietBoard /></AuthGate>;
@@ -38,14 +51,24 @@ function DietBoard() {
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<{ blob: Blob; url: string }[]>([]);
   const [sending, setSending] = useState(false);
+  const [progress, setProgress] = useState<Progress | null>(null);
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!progress) return;
+    const tick = () => setSeconds(Math.floor((Date.now() - progress.startedAt) / 1000));
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [progress]);
   const dictation = useDictation({ value: text, onChange: setText, disabled: sending });
+  const inputHistory = useInputHistory(text, setText);
   // 两边各自一段对话；改计划时把前面几轮带给模型，能接着说「再把周五也这样」
   const [threads, setThreads] = useState<Record<"record" | "plan", PlanTurn[]>>({ record: [], plan: [] });
   const thread = threads[mode];
   const threadEnd = useRef<HTMLDivElement>(null);
   useEffect(() => {
     threadEnd.current?.scrollIntoView({ block: "end" });
-  }, [thread.length, sending]);
+  }, [thread.length, sending, progress?.refreshing]);
   const [review, setReview] = useState<DietReview | null>(null);
   const [reviewing, setReviewing] = useState(false);
 
@@ -106,30 +129,39 @@ function DietBoard() {
 
   const send = async (raw = text) => {
     const spoken = raw.trim();
-    if (sending || (!spoken && !photos.length)) return;
+    const picked = photos;
+    if (sending || (!spoken && !picked.length)) return;
     setSending(true);
-    const asked: PlanTurn = { role: "parent", text: spoken || `（拍了 ${photos.length} 张照片）` };
-    const history = threads[mode];
+    setSeconds(0);
+    setProgress({ mode, photos: picked.length, startedAt: Date.now(), refreshing: false });
+    // 发出去就清空输入框；没发成再放回来
+    inputHistory.remember(spoken);
+    setText("");
+    setPhotos([]);
+    const asked: PlanTurn = { role: "parent", text: spoken || `（拍了 ${picked.length} 张照片）` };
+    const turns = threads[mode];
     setThreads((all) => ({ ...all, [mode]: [...all[mode], asked] }));
     try {
-      const blobs = photos.map((photo) => photo.blob);
-      const result = mode === "plan" ? await capturePlan(spoken, blobs, day, 7, "", history) : await captureRecord(spoken, blobs);
+      const blobs = picked.map((photo) => photo.blob);
+      const result = mode === "plan" ? await capturePlan(spoken, blobs, day, 7, "", turns) : await captureRecord(spoken, blobs);
       setThreads((all) => ({ ...all, [mode]: [...all[mode], { role: "assistant", text: result.reply }] }));
-      setText("");
-      photos.forEach((photo) => URL.revokeObjectURL(photo.url));
-      setPhotos([]);
+      picked.forEach((photo) => URL.revokeObjectURL(photo.url));
       // 记的是别的日子（比如改了下周的计划），跳过去看
       if (mode === "record") {
         const first = (result as { records: DietRecord[] }).records[0];
         if (first) setDay(dayjs(first.eatenAt).format("YYYY-MM-DD"));
       }
+      setProgress((current) => current && { ...current, refreshing: true });
       await load();
     } catch (err) {
-      // 没发成：撤回这一句，话留在输入框里
+      // 没发成：撤回这一句，话和照片放回输入框（这期间又打了字就不覆盖）
       setThreads((all) => ({ ...all, [mode]: all[mode].filter((turn) => turn !== asked) }));
+      setText((current) => current || spoken);
+      setPhotos((list) => (list.length ? list : picked));
       Toast.show({ content: (err as Error).message });
     } finally {
       setSending(false);
+      setProgress(null);
     }
   };
 
@@ -260,18 +292,26 @@ function DietBoard() {
       <footer className="diet-composer">
         {thread.length > 0 && (
           <div className="diet-thread">
-            <button className="diet-thread-clear" onClick={() => setThreads((all) => ({ ...all, [mode]: [] }))} aria-label="重新开始">
+            <button className="diet-thread-clear" onClick={() => setThreads((all) => ({ ...all, [mode]: [] }))} disabled={sending} aria-label="重新开始">
               <X size={13} /> 重新开始
             </button>
             {thread.map((turn, index) => (
               <div key={index} className="diet-bubble" data-role={turn.role}>{turn.text}</div>
             ))}
-            {sending && <div className="diet-bubble" data-role="assistant"><span className="pa-btn-spin" /></div>}
+            {progress && (
+              <div className="diet-bubble diet-progress" data-role="assistant" role="status" aria-live="polite">
+                <span className="diet-progress-line"><span className="pa-btn-spin" />{progressText(progress, seconds)}</span>
+                <span className="diet-progress-bar"><i style={{ width: `${progress.refreshing ? 100 : Math.round(92 * (1 - Math.exp(-seconds / (progress.mode === "plan" ? 20 : 10))))}%` }} /></span>
+                {seconds >= 3 && <small className="pa-num">已等 {seconds} 秒{progress.mode === "plan" && !progress.refreshing ? " · 改得多一般要半分钟左右" : ""}</small>}
+              </div>
+            )}
             <div ref={threadEnd} />
           </div>
         )}
         {canPlan && (
-          <Segmented options={[{ value: "record", label: "记实际" }, { value: "plan", label: "改计划" }]} value={mode} onChange={(value) => setMode(value as "record" | "plan")} />
+          <div className="diet-mode" data-disabled={sending}>
+            <Segmented options={[{ value: "record", label: "记实际" }, { value: "plan", label: "改计划" }]} value={mode} onChange={(value) => { if (!sending) setMode(value as "record" | "plan"); }} />
+          </div>
         )}
         <PickedPhotos urls={photos.map((photo) => photo.url)} onRemove={(index) => setPhotos((list) => {
           URL.revokeObjectURL(list[index].url);
@@ -283,11 +323,16 @@ function DietBoard() {
             <input type="file" accept="image/*" hidden disabled={photos.length >= MAX_PHOTOS || sending}
               onChange={(event) => { void pick(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
           </label>
-          <div className="pa-textarea-wrap diet-text" {...dictation.holdProps}>
+          {/* 助理还在处理时不让再输入，一句一句来，免得前后两句改到一起 */}
+          <div className="pa-textarea-wrap diet-text" data-disabled={sending} {...(sending ? {} : dictation.holdProps)}>
             <TextArea value={text} onChange={setText} rows={1} autoSize={{ minRows: 1, maxRows: 4 }}
-              readOnly={dictation.busy}
-              onKeyDown={(event) => { if (isSendKey(event) && !dictation.busy) { event.preventDefault(); void send(); } }}
-              placeholder={mode === "plan" ? "下周每天早上一个鸡蛋，周三晚饭吃鱼…" : "中午吃了半碗面条，青菜没吃…"} />
+              readOnly={dictation.busy || sending} disabled={sending}
+              onKeyDown={(event) => {
+                if (sending) { event.preventDefault(); return; }
+                if (isSendKey(event) && !dictation.busy) { event.preventDefault(); void send(); return; }
+                if (!dictation.busy) inputHistory.onKeyDown(event);
+              }}
+              placeholder={sending ? "助理在处理上一句，好了再说下一句…" : mode === "plan" ? "下周每天早上一个鸡蛋，周三晚饭吃鱼…" : "中午吃了半碗面条，青菜没吃…"} />
           </div>
           <VoiceButton className="diet-tool" dictation={dictation} disabled={sending}>
             <Mic size={20} />
@@ -356,6 +401,14 @@ function DietBoard() {
         .diet-bubble { max-width: 86%; font-size: 14px; line-height: 1.55; padding: 8px 12px; border-radius: 14px; white-space: pre-wrap; word-break: break-word; }
         .diet-bubble[data-role="assistant"] { align-self: flex-start; background: var(--pa-surface); border: 0.5px solid var(--pa-line); }
         .diet-bubble[data-role="parent"] { align-self: flex-end; background: var(--pa-accent); color: var(--pa-accent-ink); }
+        .diet-progress { display: flex; flex-direction: column; gap: 6px; min-width: 210px; }
+        .diet-progress-line { display: inline-flex; align-items: center; gap: 8px; }
+        .diet-progress-line .pa-btn-spin { width: 13px; height: 13px; flex-shrink: 0; color: var(--pa-accent); }
+        .diet-progress-bar { display: block; height: 3px; border-radius: 2px; background: var(--pa-line); overflow: hidden; }
+        .diet-progress-bar i { display: block; height: 100%; border-radius: 2px; background: var(--pa-accent); transition: width 0.9s ease-out; }
+        .diet-progress small { font-size: 11.5px; color: var(--pa-text-3); }
+        .diet-mode[data-disabled="true"], .diet-text[data-disabled="true"] { opacity: 0.55; pointer-events: none; }
+        .diet-thread-clear:disabled { opacity: 0.4; cursor: default; }
         .diet-input { display: flex; align-items: flex-end; gap: 8px; }
         .diet-text { flex: 1; min-width: 0; padding-top: 8px; padding-bottom: 8px; }
         .diet-tool, .diet-send {

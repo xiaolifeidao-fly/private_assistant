@@ -14,6 +14,7 @@ import { compressImage } from "@/lib/image";
 import { canRecord } from "@/lib/recorder";
 import { autoRead, canSpeak, setAutoRead, speak, stopSpeaking } from "@/lib/speak";
 import type { ChatMessage, Note } from "@/lib/types";
+import { useInputHistory } from "@/lib/input-history";
 import { isSendKey } from "@/lib/keys";
 
 interface StreamEvent {
@@ -62,6 +63,7 @@ export default function ElderModePage() {
   const [draft, setDraft] = useState("");
   // 打字模式下按住输入框也能说，字会出现在框里
   const dictation = useDictation({ value: draft, onChange: setDraft, disabled: sending });
+  const inputHistory = useInputHistory(draft, setDraft);
   const [voice, setVoice] = useState(false);
   const [reading, setReading] = useState(false);
   const [readingKey, setReadingKey] = useState("");
@@ -119,6 +121,7 @@ export default function ElderModePage() {
     if (!config || !conversation || sending || (!text && !picked.length)) return;
     stopSpeaking();
     setSending(true);
+    inputHistory.remember(text);
     setDraft("");
     setPhotos([]);
     setPendingText(text || "（照片）");
@@ -302,7 +305,10 @@ export default function ElderModePage() {
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="在这里打字"
-            onKeyDown={(event) => { if (isSendKey(event) && !dictation.busy) { event.preventDefault(); void send(draft); } }}
+            onKeyDown={(event) => {
+              if (isSendKey(event) && !dictation.busy) { event.preventDefault(); void send(draft); return; }
+              if (!dictation.busy) inputHistory.onKeyDown(event);
+            }}
             readOnly={dictation.busy}
             {...dictation.holdProps}
             rows={2}
