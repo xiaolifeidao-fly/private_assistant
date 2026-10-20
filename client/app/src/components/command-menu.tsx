@@ -1,6 +1,6 @@
 "use client";
 
-import { AtSign, BellPlus, BellRing, ClipboardList, Drama, NotebookPen, Search, X } from "lucide-react";
+import { AtSign, BellPlus, BellRing, ClipboardList, Drama, Luggage, MessageSquareQuote, NotebookPen, Search, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface Command {
@@ -22,6 +22,9 @@ const commands: Record<string, Command[]> = {
     remember,
     remind,
     { label: "查记忆", hint: "她说过的话、以前的事", text: "帮我查查：", keys: "cjy cx search", icon: Search },
+    // 和首页「这话怎么说」「回老家」两个入口一样的开头
+    { label: "这话怎么说", hint: "想清楚再开口", text: "这件事我想好好说，帮我想想怎么开口：", keys: "zhzms zh smhs say", icon: MessageSquareQuote },
+    { label: "回老家", hint: "见谁、注意什么", text: "下次回老家要注意什么？", keys: "hlj lj trip home", icon: Luggage },
     { label: "没做完的事", hint: "我答应过、还没办的", text: "我答应过的事还有哪些没做？", keys: "mzwds dy cn", icon: ClipboardList },
     upcoming,
     { label: "预演一句话", hint: "先让她的分身听听", text: "我打算这么跟老婆说：", keys: "yyyjh yy", icon: Drama },
