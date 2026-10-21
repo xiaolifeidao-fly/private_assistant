@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"service/weather"
 
 	"service/bot"
 	"service/family"
@@ -76,4 +77,10 @@ type DietPort interface {
 	Summary(ctx context.Context, familyKey, childKey, from string, days int) (string, error)
 	// AdviceContext 给「某天该吃什么」准备材料：那天的计划、最近两周的计划和实际、最近一次每周对照。
 	AdviceContext(ctx context.Context, familyKey, childKey, date string) (string, error)
+}
+
+// WeatherPort 查天气、改宝宝某天的送接安排（weather_now / set_outing 工具，service/weather）。
+type WeatherPort interface {
+	Describe(ctx context.Context, familyKey string, hours int) (string, error)
+	SetOutingTool(ctx context.Context, familyKey string, input weather.DayInput, reset bool, account string) (string, error)
 }

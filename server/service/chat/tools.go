@@ -14,6 +14,7 @@ import (
 	"service/llm"
 	"service/memory"
 	"service/reminder"
+	"service/weather"
 )
 
 // toolScope 是一次工具调用的上下文：哪个家庭、哪个机器人（决定记忆可见范围）。
@@ -193,6 +194,40 @@ func toolSpecs() map[string]toolSpec {
 				},
 			},
 			run: runDietOverview,
+		},
+		bot.ToolWeatherNow: {
+			definition: llm.Tool{
+				Name: bot.ToolWeatherNow,
+				Description: "查宝宝所在地（默认上海青浦）的天气：现在几度、体感、接下来逐小时、今明两天、预警，" +
+					"以及按今天送接幼儿园安排算好的宝宝穿衣结论（穿什么、几点前到家）。问「外面冷不冷」「下午会不会下雨」「宝宝今天穿什么」「几点接回来」时用。" +
+					"回答里的温度和钟点照结果说，不要自己估。",
+				Properties: map[string]any{
+					"hours": map[string]any{"type": "integer", "minimum": 1, "maximum": 48, "description": "看接下来几小时的逐小时预报，默认 12"},
+				},
+			},
+			run: runWeatherNow,
+		},
+		bot.ToolSetOuting: {
+			definition: llm.Tool{
+				Name: bot.ToolSetOuting,
+				Description: "改宝宝某一天的送接 / 出门安排（只改这一天，不动平常的默认）：「今天不去幼儿园」「明天 4 点 10 分接」「下午去外婆家 6 点回」。" +
+					"改完后穿衣提醒按新安排算。只在明确说了要改安排时调用；reset=true 是这天恢复平常的安排。",
+				Properties: map[string]any{
+					"date":      map[string]any{"type": "string", "description": "哪天 YYYY-MM-DD，默认今天"},
+					"no_school": map[string]any{"type": "boolean", "description": "这天不去幼儿园"},
+					"drop":      map[string]any{"type": "string", "description": "送的时间 HH:MM，不改就不填"},
+					"pickup":    map[string]any{"type": "string", "description": "接的时间 HH:MM，不改就不填"},
+					"home":      map[string]any{"type": "string", "description": "最晚到家时间 HH:MM，不改就不填"},
+					"outings": map[string]any{"type": "array", "description": "这天要出去的时段（替换平常周末的出去玩时段），不改就不填",
+						"items": map[string]any{"type": "object", "properties": map[string]any{
+							"from": map[string]any{"type": "string", "description": "HH:MM"}, "to": map[string]any{"type": "string", "description": "HH:MM"},
+							"note": map[string]any{"type": "string", "description": "去哪 / 干什么"},
+						}, "required": []string{"from", "to"}}},
+					"note":  map[string]any{"type": "string", "description": "备注"},
+					"reset": map[string]any{"type": "boolean", "description": "这天恢复平常的安排"},
+				},
+			},
+			run: runSetOuting,
 		},
 		bot.ToolNow: {
 			definition: llm.Tool{Name: bot.ToolNow, Description: "获取当前日期、时间和星期。", Properties: map[string]any{}},
@@ -699,4 +734,33 @@ func runDietOverview(ctx context.Context, s *Service, scope toolScope, input jso
 		args.From = time.Now().AddDate(0, 0, 1-args.Days).Format("2006-01-02")
 	}
 	return s.diet.Summary(ctx, scope.familyKey, args.Child, args.From, args.Days)
+}
+
+func runWeatherNow(ctx context.Context, s *Service, scope toolScope, input json.RawMessage) (string, error) {
+	if s.weather == nil {
+		return "", errors.New("天气没有开")
+	}
+	var args struct {
+		Hours int `json:"hours"`
+	}
+	if err := decodeInput(input, &args); err != nil {
+		return "", err
+	}
+	return s.weather.Describe(ctx, scope.familyKey, args.Hours)
+}
+
+func runSetOuting(ctx context.Context, s *Service, scope toolScope, input json.RawMessage) (string, error) {
+	if s.weather == nil {
+		return "", errors.New("天气没有开")
+	}
+	var args struct {
+		weather.DayInput
+		NoSchool bool `json:"no_school"`
+		Reset    bool `json:"reset"`
+	}
+	if err := decodeInput(input, &args); err != nil {
+		return "", err
+	}
+	args.DayInput.NoSchool = args.NoSchool
+	return s.weather.SetOutingTool(ctx, scope.familyKey, args.DayInput, args.Reset, viewer.Owner(ctx))
 }

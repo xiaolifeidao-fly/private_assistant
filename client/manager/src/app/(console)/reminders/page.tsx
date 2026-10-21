@@ -27,6 +27,7 @@ const kindMeta: Record<string, { label: string; tone: Tone }> = {
   festival: { label: "节日", tone: "amber" },
   trip: { label: "行程", tone: "sky" },
   daily: { label: "每日简报", tone: "sage" },
+  weather: { label: "宝宝穿衣", tone: "sky" },
 };
 const statusMeta: Record<string, { label: string; tone: Tone; pulse?: boolean }> = {
   scheduled: { label: "待发送", tone: "sky" },

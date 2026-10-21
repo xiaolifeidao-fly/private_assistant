@@ -11,6 +11,7 @@ import (
 	"app-api/pkg/notes"
 	"app-api/pkg/reminders"
 	"app-api/pkg/speech"
+	"app-api/pkg/weather"
 	"common/middleware/httpx"
 	"common/middleware/routers"
 	"common/viewer"
@@ -38,6 +39,7 @@ func New(services *wire.Services) http.Handler {
 		reminders.New(services.Reminder),
 		speech.New(services.LLM),
 		diet.New(services.Diet),
+		weather.New(services.Weather),
 	} {
 		handler.RegisterHandler(protected)
 	}

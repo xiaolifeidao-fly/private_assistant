@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, Toast } from "antd-mobile";
-import { BellRing, ChevronRight, Utensils } from "lucide-react";
+import { BellRing, ChevronRight, Shirt, Utensils } from "lucide-react";
 import { elderModes } from "@/lib/elder";
 import { enablePush, isStandalone, pushState } from "@/lib/push";
 import { logout, useMe } from "@/lib/role";
 import { greeting, todayLabel } from "@/lib/time";
 
-/** 长辈模式首页：三张大卡片，点哪个就进哪个。 */
+/** 长辈模式首页：几张大卡片，点哪个就进哪个。 */
 export default function ElderHome() {
   const router = useRouter();
   const { me } = useMe();
@@ -19,6 +19,7 @@ export default function ElderHome() {
   useEffect(() => {
     elderModes.forEach((item) => router.prefetch(`/elder/${item.mode}`));
     router.prefetch("/elder/diet");
+    router.prefetch("/elder/weather");
     pushState().then(setPush).catch(() => setPush(""));
   }, [router]);
 
@@ -75,6 +76,15 @@ export default function ElderHome() {
           <span className="el-card-text">
             <b>宝宝吃饭</b>
             <small>看今天吃什么，喂完拍张照、说一句</small>
+          </span>
+          <ChevronRight size={32} strokeWidth={2.4} className="el-card-go" />
+        </button>
+        {/* 宝宝穿什么：按天气说穿什么、几点前接回家 */}
+        <button className="el-card" data-tone="sky" onClick={() => router.push("/elder/weather")}>
+          <span className="el-card-icon"><Shirt size={40} strokeWidth={2.1} /></span>
+          <span className="el-card-text">
+            <b>宝宝穿什么</b>
+            <small>今天冷不冷、穿什么、几点前回家</small>
           </span>
           <ChevronRight size={32} strokeWidth={2.4} className="el-card-go" />
         </button>

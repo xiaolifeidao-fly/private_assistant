@@ -21,6 +21,7 @@ import (
 	"manager-api/pkg/settings"
 	"manager-api/pkg/skills"
 	"manager-api/pkg/speech"
+	"manager-api/pkg/weather"
 	"service/identity"
 	"service/wire"
 
@@ -57,6 +58,7 @@ func New(services *wire.Services) http.Handler {
 		conversations.New(services.Chat),
 		reminders.New(services.Reminder),
 		diet.New(services.Diet),
+		weather.New(services.Weather),
 	} {
 		handler.RegisterHandler(protected)
 	}

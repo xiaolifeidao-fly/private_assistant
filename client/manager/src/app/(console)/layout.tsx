@@ -24,6 +24,7 @@ import {
   UserCog,
   Users,
   Utensils,
+  Shirt,
 } from "lucide-react";
 import { api, ApiError, getToken, setToken } from "@/lib/api";
 import { withBase } from "@/lib/base-path";
@@ -47,6 +48,7 @@ const navGroups = [
       { key: "/personas", icon: IdCard, label: "人设卡" },
       { key: "/places", icon: Home, label: "几个家" },
       { key: "/diet", icon: Utensils, label: "宝宝饮食" },
+      { key: "/weather", icon: Shirt, label: "宝宝穿衣" },
     ],
   },
   {

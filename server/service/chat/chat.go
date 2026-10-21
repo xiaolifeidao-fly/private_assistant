@@ -39,11 +39,15 @@ type Service struct {
 	settings  SettingPort
 	notes     NotePort
 	diet      DietPort
+	weather   WeatherPort
 }
 
 func New(database *gorm.DB, familyService FamilyPort, memoryService MemoryPort, botService BotPort, gateway LLMPort, personaService PersonaPort, reminderService ReminderPort, skillService SkillPort, settingService SettingPort, noteService NotePort, dietService DietPort) *Service {
 	return &Service{db: database, family: familyService, memory: memoryService, bots: botService, llm: gateway, personas: personaService, reminders: reminderService, skills: skillService, settings: settingService, notes: noteService, diet: dietService}
 }
+
+// SetWeather 接上天气（weather_now、set_outing 工具），由 wire 注入。
+func (s *Service) SetWeather(port WeatherPort) { s.weather = port }
 
 type Conversation struct {
 	ConversationKey string     `json:"conversationKey"`

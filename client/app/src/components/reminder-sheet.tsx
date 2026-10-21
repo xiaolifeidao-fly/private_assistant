@@ -18,6 +18,7 @@ export const reminderMeta: Record<string, { label: string; tone: Tone }> = {
   dated: { label: "日期", tone: "plum" },
   festival: { label: "节日", tone: "amber" },
   trip: { label: "行程", tone: "sky" },
+  weather: { label: "穿衣", tone: "sky" },
   manual: { label: "提醒", tone: "slate" },
 };
 

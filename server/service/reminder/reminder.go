@@ -82,6 +82,8 @@ type Trip struct {
 }
 
 type ManualInput struct {
+	// Kind 默认 manual；别的模块自动建的提醒可以标上自己的类型（weather 宝宝穿衣）
+	Kind      string     `json:"-"`
 	Title     string     `json:"title"`
 	Body      string     `json:"body"`
 	EventAt   *time.Time `json:"eventAt"`
@@ -131,7 +133,11 @@ func (s *Service) CreateManual(ctx context.Context, familyKey string, input Manu
 	if input.Title == "" || input.RemindAt.IsZero() {
 		return Reminder{}, errors.New("提醒标题和时间不能为空")
 	}
-	return s.upsert(ctx, familyKey, reminderSeed{Kind: "manual", Title: input.Title, Body: input.Body,
+	kind := input.Kind
+	if kind == "" {
+		kind = "manual"
+	}
+	return s.upsert(ctx, familyKey, reminderSeed{Kind: kind, Title: input.Title, Body: input.Body,
 		EventAt: input.EventAt, RemindAt: input.RemindAt.In(shanghai), DedupeKey: keys.New("manual"), TargetURL: input.TargetURL,
 		Visibility: viewer.Resolve(ctx, input.Visibility)})
 }

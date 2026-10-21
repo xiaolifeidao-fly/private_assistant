@@ -23,6 +23,7 @@ import (
 	"service/reminder"
 	"service/setting"
 	"service/skill"
+	"service/weather"
 
 	"common/objectstore"
 
@@ -45,6 +46,7 @@ type Services struct {
 	Settings *setting.Service
 	Insight  *insight.Service
 	Diet     *diet.Service
+	Weather  *weather.Service
 }
 
 type Options struct {
@@ -148,13 +150,23 @@ func Build(database *gorm.DB, options Options) *Services {
 	// 后台任务没有登录账号，按「我自己」的账号看记录：看得到我的私有记录，看不到奶奶的
 	viewer.SystemAccounts = identityService.SystemAccounts
 	dietService.SetNotifier(reminderService, identityService.PlanAccounts)
+	weatherService := weather.New(database, familyService, gateway)
+	weatherService.SetNotifier(reminderService, func(ctx context.Context, roles []string) []weather.Recipient {
+		var result []weather.Recipient
+		for _, item := range identityService.AccountsByRole(ctx, roles) {
+			result = append(result, weather.Recipient{Account: item.Account, Role: item.Role})
+		}
+		return result
+	})
+	chatService := chat.New(database, familyService, memoryService, botService, gateway, personaService, reminderService, skillService, settingService, intakeService, dietService)
+	chatService.SetWeather(weatherService)
 	return &Services{
 		Identity: identityService,
 		Family:   familyService,
 		Memory:   memoryService,
 		Bots:     botService,
 		LLM:      gateway,
-		Chat:     chat.New(database, familyService, memoryService, botService, gateway, personaService, reminderService, skillService, settingService, intakeService, dietService),
+		Chat:     chatService,
 		Persona:  personaService,
 		Reminder: reminderService,
 		Skills:   skillService,
@@ -162,6 +174,7 @@ func Build(database *gorm.DB, options Options) *Services {
 		Insight:  insight.New(database, memoryService, familyService, gateway, reminderService, settingService),
 		Intake:   intakeService,
 		Diet:     dietService,
+		Weather:  weatherService,
 	}
 }
 
@@ -176,6 +189,8 @@ func (s *Services) StartWorkers(ctx context.Context) {
 	go s.Insight.RunScheduler(viewer.AsSystem(ctx))
 	// 饮食周点评：饮食表全家共用；推送时按每个收件人的账号建提醒
 	go s.Diet.RunScheduler(viewer.AsSystem(ctx))
+	// 宝宝穿衣：每天早 / 中 / 接之前 / 晚推给我和奶奶，按每个收件人的账号建提醒
+	go s.Weather.RunScheduler(viewer.AsSystem(ctx))
 }
 
 // Seed 写入默认机器人和配置文件里给的模型提供商，并在后台补算缺失的向量。

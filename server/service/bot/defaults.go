@@ -15,6 +15,8 @@ const (
 	ToolCancelReminder = "cancel_reminder"
 	ToolLoadSkill      = "load_skill"
 	ToolDietOverview   = "diet_overview"
+	ToolWeatherNow     = "weather_now"
+	ToolSetOuting      = "set_outing"
 )
 
 func defaults() []Bot {
@@ -24,7 +26,7 @@ func defaults() []Bot {
 			Description: "记住家里的事，帮我想清楚怎么做、怎么说",
 			Greeting:    "我在。可以让我记一件事，也可以问我「她以前说过什么」「这事我该怎么处理」。",
 			RouteTask:   "chat.assistant", MemoryScope: ScopeAll,
-			Tools:        []string{ToolSearchMemory, ToolGetPerson, ToolGetRelations, ToolGetPlace, ToolOpenItems, ToolListUpcoming, ToolCreateReminder, ToolRemember, ToolAskPersona, ToolDietOverview, ToolLoadSkill, ToolNow},
+			Tools:        []string{ToolSearchMemory, ToolGetPerson, ToolGetRelations, ToolGetPlace, ToolOpenItems, ToolListUpcoming, ToolCreateReminder, ToolRemember, ToolAskPersona, ToolDietOverview, ToolWeatherNow, ToolSetOuting, ToolLoadSkill, ToolNow},
 			SystemPrompt: assistantPrompt,
 		},
 		{
@@ -32,7 +34,7 @@ func defaults() []Bot {
 			Description: "东西放哪了、发生过什么、谁说过什么，问它；拍张照说一句就能记下",
 			Greeting:    "想找什么、想起什么，直接问。要记东西放在哪：拍张照，说一下这是什么、干什么用、放在哪。",
 			RouteTask:   "chat.recall", MemoryScope: ScopeAll,
-			Tools:        []string{ToolSearchMemory, ToolGetPerson, ToolGetPlace, ToolListUpcoming, ToolRemember, ToolDietOverview, ToolNow},
+			Tools:        []string{ToolSearchMemory, ToolGetPerson, ToolGetPlace, ToolListUpcoming, ToolRemember, ToolDietOverview, ToolWeatherNow, ToolSetOuting, ToolNow},
 			SystemPrompt: recallPrompt,
 		},
 		{
@@ -40,7 +42,7 @@ func defaults() []Bot {
 			Description: "说一句要做的事，自动整理成几点提醒什么，到点推送到手机",
 			Greeting:    "要提醒什么？直接说，比如「明早 8 点给妈打电话」「周五下班前交报销」。改时间、取消、看看最近有哪些提醒也可以跟我说。",
 			RouteTask:   "chat.remind", MemoryScope: ScopeAll,
-			Tools:        []string{ToolListUpcoming, ToolCreateReminder, ToolCancelReminder, ToolSearchMemory, ToolGetPerson, ToolNow},
+			Tools:        []string{ToolListUpcoming, ToolCreateReminder, ToolCancelReminder, ToolSearchMemory, ToolGetPerson, ToolWeatherNow, ToolSetOuting, ToolNow},
 			SystemPrompt: remindPrompt,
 		},
 		{

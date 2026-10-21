@@ -11,6 +11,7 @@ import { botTone, type Tone } from "@/lib/tone";
 import { greeting, todayLabel } from "@/lib/time";
 import type { Conversation, Paged } from "@/lib/types";
 import { ConversationDrawer } from "@/components/conversation-drawer";
+import { WeatherCard } from "@/components/weather";
 import { Avatar, PageHeader, Section, Skeleton, Tip } from "@/components/ui";
 
 interface BotSummary {
@@ -39,6 +40,7 @@ export default function ChatsPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [starting, setStarting] = useState("");
   const [drawer, setDrawer] = useState(false);
+  const [refreshed, setRefreshed] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -48,6 +50,7 @@ export default function ChatsPage() {
       ]);
       setBots(botList);
       setConversations(page.items);
+      setRefreshed((value) => value + 1);
     } catch (error) {
       setBots((value) => value ?? []);
       Toast.show({ content: (error as Error).message });
@@ -136,6 +139,9 @@ export default function ChatsPage() {
               </button>
             </div>
           )}
+
+          {/* 宝宝穿衣：今天冷不冷、穿什么、几点前到家 */}
+          <WeatherCard refreshKey={refreshed} />
 
           {assistant && (
             <div className="chat-shortcuts pa-stagger">

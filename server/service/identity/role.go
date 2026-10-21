@@ -91,3 +91,26 @@ func (s *Service) PlanAccounts(ctx context.Context) []string {
 	}
 	return keys
 }
+
+// AccountRole 是一个手机端账号和它的角色。
+type AccountRole struct {
+	Account string
+	Role    string
+}
+
+// AccountsByRole 是这些角色的手机端账号（宝宝穿衣推给我和奶奶，按设置里的角色）。
+func (s *Service) AccountsByRole(ctx context.Context, roles []string) []AccountRole {
+	if len(roles) == 0 {
+		return nil
+	}
+	var rows []accountRow
+	if err := s.db.WithContext(ctx).Model(&accountRow{}).Select("account_key", "role").
+		Where("realm = ? AND status = 'active' AND role IN ?", RealmApp, roles).Order("id").Find(&rows).Error; err != nil {
+		return nil
+	}
+	result := make([]AccountRole, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, AccountRole{Account: row.AccountKey, Role: row.Role})
+	}
+	return result
+}
